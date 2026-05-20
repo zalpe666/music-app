@@ -16,7 +16,13 @@ import {
     Heart,
     Shuffle,
     Sparkles,
-    PanelRightClose, PanelRightOpen
+    PanelRightClose,
+    PanelRightOpen,
+    Globe,      // Pastikan ini ada
+    MapPin,
+    // Gunakan ikon sosial media alternatif ini jika Facebook/Twitter error:
+    Disc,       // Pengganti ikon sosial
+    Send        // Pengganti ikon pesan/Twitter
 } from "lucide-react";
 import usePlayerStore from "@/Stores/playerStore";
 
@@ -378,22 +384,97 @@ export default function AppLayout({ children }) {
 
                                     {/* LYRICS */}
                                     <div className="px-5">
-                                        <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <h3 className="font-semibold text-white">Lyrics</h3>
-                                                <button
-                                                    onClick={handleMicClick}
-                                                    className={`transition-colors p-1.5 rounded-full ${isLyricsMode ? 'bg-accent/20 text-accent' : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'}`}
-                                                    title="Open Full Lyrics"
-                                                >
-                                                    <Mic2 size={16} />
-                                                </button>
+                                        <div className="bg-zinc-900/50 border border-white/5 rounded-xl overflow-hidden">
+                                            {/* 1. FANART BANNER (Visual Assets) */}
+                                            {currentSong.artist?.strArtistFanart && (
+                                                <div className="relative h-24 w-full bg-zinc-800">
+                                                    <img
+                                                        src={currentSong.artist.strArtistFanart}
+                                                        alt="Artist Fanart"
+                                                        className="w-full h-full object-cover opacity-60 mix-blend-luminosity hover:mix-blend-normal transition-all duration-700"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/50 to-transparent"></div>
+                                                    {/* Logo jika ada */}
+                                                    {currentSong.artist?.strArtistLogo && (
+                                                        <img
+                                                            src={currentSong.artist.strArtistLogo}
+                                                            alt="Artist Logo"
+                                                            className="absolute bottom-2 left-4 h-8 object-contain drop-shadow-lg"
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className={`p-5 ${currentSong.artist?.strArtistFanart ? 'pt-2' : ''}`}>
+                                                {/* 2. HEADER & FACTS */}
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="font-semibold text-white">About Artist</h3>
+                                                    {currentSong.artist?.strCountry && (
+                                                        <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold flex items-center gap-1">
+                                                            <MapPin size={10} />
+                                                            {currentSong.artist.strCountry}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* 3. AI SCORING BADGES (Vibe, Genre, Style) */}
+                                                <div className="flex flex-wrap gap-2 mb-4">
+                                                    {currentSong.artist?.strGenre && (
+                                                        <span className="px-2 py-1 bg-white/10 text-zinc-300 text-[10px] rounded-md font-medium border border-white/5">
+                                                            {currentSong.artist.strGenre}
+                                                        </span>
+                                                    )}
+                                                    {currentSong.artist?.strMood && (
+                                                        <span className="px-2 py-1 bg-green-500/10 text-green-400 text-[10px] rounded-md font-medium border border-green-500/20">
+                                                            {currentSong.artist.strMood}
+                                                        </span>
+                                                    )}
+                                                    {currentSong.artist?.strStyle && (
+                                                        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-[10px] rounded-md font-medium border border-blue-500/20">
+                                                            {currentSong.artist.strStyle}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* 4. BIOGRAPHY */}
+                                                {currentSong.artist?.strBiography ? (
+                                                    <p className="text-xs text-zinc-400 line-clamp-4 leading-relaxed mb-4 hover:line-clamp-none transition-all duration-300 cursor-pointer">
+                                                        {currentSong.artist.strBiography}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-zinc-600 mb-4 italic">Biography not available.</p>
+                                                )}
+
+                                                {/* 5. FOOTER: FACTS & SOCIAL MEDIA */}
+                                                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                                    <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                                                        {currentSong.artist?.intFormedYear && (
+                                                            <span>Est. {currentSong.artist.intFormedYear}</span>
+                                                        )}
+                                                        {currentSong.artist?.intMembers > 1 && (
+                                                            <span>{currentSong.artist.intMembers} Members</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3">
+                                                        {currentSong.artist?.strWebsite && (
+                                                            <a href={currentSong.artist.strWebsite} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-white transition-colors" title="Website">
+                                                                <Globe size={14} />
+                                                            </a>
+                                                        )}
+                                                        {/* {currentSong.artist?.strFacebook && (
+                                                            <a href={currentSong.artist.strFacebook} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-blue-500 transition-colors" title="Facebook">
+                                                                <Facebook size={14} />
+                                                            </a>
+                                                        )}
+                                                        {currentSong.artist?.strTwitter && (
+                                                            <a href={currentSong.artist.strTwitter} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-sky-400 transition-colors" title="Twitter">
+                                                                <Twitter size={14} />
+                                                            </a>
+                                                        )} */}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-zinc-300 whitespace-pre-line leading-relaxed">
-                                                {loadingLyrics
-                                                    ? "Memuat lirik..."
-                                                    : parsedLyrics.map((line) => line.text).join("\n")}
-                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -457,10 +538,10 @@ export default function AppLayout({ children }) {
                                                     <Sparkles className="relative text-green-500 animate-pulse" size={36} />
                                                 </div>
                                                 <h4 className="text-zinc-200 text-sm font-medium mb-1.5">
-                                                    AI Sedang Mencocokkan Vibe
+                                                    AI Vibe Matching
                                                 </h4>
                                                 <p className="text-zinc-500 text-xs leading-relaxed px-2">
-                                                    DJ Pribadi kamu akan memilihkan lagu berikutnya secara otomatis berdasarkan mood, genre, dan style dari lagu ini.
+                                                    Our intelligent DJ is analyzing your current track to curate the perfect next song based on mood, genre, and style.
                                                 </p>
                                             </div>
                                         ) : (
