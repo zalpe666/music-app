@@ -11,9 +11,29 @@ use Illuminate\Http\UploadedFile;
 use App\Models\Song;
 use App\Models\Artist;
 use App\Models\Album;
+use App\Services\ArtistDataService;
 
 class SongController extends Controller
 {
+    public function indexArtists()
+    {
+        $artists = Artist::all();
+        return view('admin.artist.index', compact('artists'));
+    }
+    public function showArtist(Artist $artist)
+    {
+        // Kamu bisa melempar data artis ke view detail
+        return view('admin.artist.show', compact('artist'));
+    }
+    public function sync(Artist $artist, ArtistDataService $service)
+    {
+        // Panggil service untuk update data
+        dd($artist->name);
+        $service->updateArtistData($artist);
+
+        // Kembali ke halaman sebelumnya dengan pesan sukses
+        return back()->with('success', 'Data ' . $artist->name . ' berhasil disinkronisasi!');
+    }
     public function index()
     {
         $songs = Song::latest()->paginate(20);
@@ -222,5 +242,23 @@ class SongController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+    public function syncAll(ArtistDataService $service)
+    {
+        // Mengatur waktu eksekusi jadi tak terbatas agar tidak timeout
+        set_time_limit(0);
+
+        $artists = Artist::all();
+        $count = 0;
+
+        foreach ($artists as $artist) {
+            $service->updateArtistData($artist);
+
+            // Jeda 1 detik agar tidak kena blokir API TheAudioDB
+            sleep(1);
+            $count++;
+        }
+
+        return back()->with('success', "Berhasil sinkronisasi $count artis.");
     }
 }

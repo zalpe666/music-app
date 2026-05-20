@@ -14,6 +14,8 @@ import {
     Library,
     PlusSquare,
     Heart,
+    Shuffle,
+    Sparkles,
     PanelRightClose, PanelRightOpen
 } from "lucide-react";
 import usePlayerStore from "@/Stores/playerStore";
@@ -21,7 +23,7 @@ import usePlayerStore from "@/Stores/playerStore";
 export default function AppLayout({ children }) {
     const audioRef = useRef(null);
     const { url } = usePage(); // Untuk mengetahui halaman mana yang sedang aktif
-
+    const [isLoading, setIsLoading] = useState(false);
     // AMBIL DATA DARI ZUSTAND STORE
     const {
         currentSong,
@@ -35,6 +37,12 @@ export default function AppLayout({ children }) {
         nextSong,
         prevSong,
         togglePlay,
+        songs,
+        currentIndex,
+        playSong,
+        isShuffle,
+        toggleShuffle,
+        explicit_lyrics,
     } = usePlayerStore();
 
     const [volume, setVolume] = useState(1);
@@ -43,6 +51,7 @@ export default function AppLayout({ children }) {
     const [rightTab, setRightTab] = useState("details");
     const [parsedLyrics, setParsedLyrics] = useState([]);
     const [loadingLyrics, setLoadingLyrics] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const parseLRC = (text) => {
         return text
             .split("\n")
@@ -61,16 +70,22 @@ export default function AppLayout({ children }) {
             .filter(Boolean);
     };
     const handleMicClick = () => {
-        if (!currentSong?.lyrics_path) return; // Jika tidak ada lirik, jangan lakukan apa-apa
-
-        const newMode = !isLyricsMode;
-        setIsLyricsMode(newMode);
-
-        // JIKA sedang tidak di halaman player, PAKSA pindah ke /player
-        if (newMode && url !== "/player") {
+        // 1. Jika kita belum di halaman player, pindah ke player dan aktifkan lirik
+        if (url !== "/player") {
+            setIsLyricsMode(true); // Aktifkan mode lirik
             router.visit(route("player"));
+            return;
         }
+
+        // 2. Jika kita SUDAH di halaman player, baru kita lakukan toggle (buka/tutup)
+        setIsLyricsMode(!isLyricsMode);
     };
+    useEffect(() => {
+        // Jika url bukan /player, matikan mode lirik
+        if (url !== "/player" && isLyricsMode) {
+            setIsLyricsMode(false);
+        }
+    }, [url]); // Efek ini jalan setiap kali navigasi berubah
     useEffect(() => {
         if (currentSong?.lyrics_path) {
             setLoadingLyrics(true);
@@ -103,25 +118,77 @@ export default function AppLayout({ children }) {
                 });
         }
     }, [currentSong]);
+    // Di dalam AppLayout.jsx
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const handlePlay = () => {
+            // Hanya update store jika tidak sinkron
+            if (!isPlaying) togglePlay();
+        };
+
+        const handlePause = () => {
+            if (isPlaying) togglePlay();
+        };
+
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+
+        return () => {
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
+        };
+    }, [isPlaying]);
     // LOGIC AUDIO & GOOGLE DRIVE STREAMING
     useEffect(() => {
         if (!audioRef.current || !currentSong) return;
 
-        // Path stream diarahkan ke controller Laravel Google Drive Anda
         const streamUrl = `/stream/${currentSong.audio_path}`;
 
         if (audioRef.current.src !== window.location.origin + streamUrl) {
+            setIsLoading(true);
             audioRef.current.src = streamUrl;
             audioRef.current.load();
         }
 
-        if (isPlaying) {
-            audioRef.current.play().catch((e) => console.log("Play error:", e));
-        } else {
-            audioRef.current.pause();
-        }
-    }, [currentSong, isPlaying]);
+        const playAudio = async () => {
+            try {
+                if (isPlaying) {
+                    await audioRef.current.play();
+                } else {
+                    audioRef.current.pause();
+                }
+            } catch (e) {
+                console.log("Autoplay dicegat browser, tombol Pause akan muncul.");
+                // KUNCI: Jika error (dicegat), kita set isPlaying di store ke false 
+                // agar UI kembali ke ikon Play
+                if (isPlaying) {
+                    togglePlay(); // Ini akan membalikkan isPlaying menjadi false
+                }
+            }
+        };
 
+        playAudio();
+    }, [currentSong, isPlaying]);
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const onCanPlay = () => {
+            setIsLoading(false);
+            // Setelah file siap, jika state isPlaying benar-benar true, coba play lagi
+            if (isPlaying && audio.paused) {
+                audio.play().catch(() => {
+                    // Jika tetap gagal, update UI ke pause
+                    if (isPlaying) togglePlay();
+                });
+            }
+        };
+
+        audio.addEventListener('canplay', onCanPlay);
+        return () => audio.removeEventListener('canplay', onCanPlay);
+    }, [isPlaying]); // Tambahkan isPlaying sebagai dependency
     // UPDATE VOLUME
     useEffect(() => {
         if (audioRef.current) {
@@ -162,77 +229,54 @@ export default function AppLayout({ children }) {
         <div className="flex flex-col h-screen bg-black text-zinc-100 font-sans overflow-hidden">
             <div className="flex flex-1 overflow-hidden">
                 {/* SIDEBAR */}
-                <aside className="w-64 bg-black flex-col hidden md:flex z-20 shrink-0 transition-all duration-300">
-                    <div className="flex flex-col h-full w-64 pt-6 pb-4">
-                        <div className="px-6 mb-8 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20 shrink-0">
-                                <Play
-                                    size={14}
-                                    className="text-black fill-black ml-0.5"
-                                />
-                            </div>
-                            <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent">
-                                Zaldien Music
-                            </h1>
+                {/* SIDEBAR */}
+                <aside className={`bg-black flex-col hidden md:flex z-20 shrink-0 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-16"}`}>
+                    <div className="flex flex-col h-full pt-6 pb-4">
+                        {/* Tombol Toggle */}
+                        <div className="px-6 mb-8 flex items-center justify-between">
+                            {isSidebarOpen && (
+                                <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent">
+                                    Zaldien Music
+                                </h1>
+                            )}
+                            <button
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                className="text-zinc-400 hover:text-white transition"
+                            >
+                                {isSidebarOpen ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
+                            </button>
                         </div>
 
                         <div className="px-3">
                             <nav className="space-y-1">
                                 <Link href={route("dashboard")}>
-                                    <NavItem
-                                        icon={<Home size={22} />}
-                                        label="Home"
-                                        active={url.startsWith("/dashboard")}
-                                    />
+                                    <NavItem icon={<Home size={22} />} label={isSidebarOpen ? "Home" : ""} active={url.startsWith("/dashboard")} />
                                 </Link>
                                 <Link href={route("search")}>
-                                    <NavItem
-                                        icon={<Search size={22} />}
-                                        label="Search"
-                                        active={url.startsWith("/search")}
-                                    />
+                                    <NavItem icon={<Search size={22} />} label={isSidebarOpen ? "Search" : ""} active={url.startsWith("/search")} />
                                 </Link>
                                 <Link href={route("library")}>
-                                    <NavItem
-                                        icon={<Library size={22} />}
-                                        label="Your Library"
-                                        active={url.startsWith("/library")}
-                                    />
+                                    <NavItem icon={<Library size={22} />} label={isSidebarOpen ? "Your Library" : ""} active={url.startsWith("/library")} />
                                 </Link>
                             </nav>
                         </div>
 
-                        <div className="px-3 mt-8">
-                            <nav className="space-y-1">
-                                <NavItem
-                                    icon={<PlusSquare size={22} />}
-                                    label="Create Playlist"
-                                />
-                                <NavItem
-                                    icon={<Heart size={22} />}
-                                    label="Liked Songs"
-                                    customIconColor="text-green-500"
-                                />
-                            </nav>
-                        </div>
-
-                        <div className="px-6 mt-4 mb-4">
-                            <div className="h-px bg-white/10 w-full" />
-                        </div>
-
-                        <div className="px-6 flex-1 overflow-y-auto scrollbar-hide">
-                            <p className="text-[11px] font-bold text-zinc-500 tracking-widest uppercase mb-4">
-                                Playlists
-                            </p>
-                            <ul className="space-y-3 text-sm text-zinc-400">
-                                <li className="hover:text-white cursor-pointer transition-colors line-clamp-1">
-                                    Coding Vibes 💻
-                                </li>
-                                <li className="hover:text-white cursor-pointer transition-colors line-clamp-1">
-                                    Late Night Drive 🌙
-                                </li>
-                            </ul>
-                        </div>
+                        {/* Sembunyikan bagian bawah jika sidebar tertutup agar rapi */}
+                        {isSidebarOpen && (
+                            <>
+                                <div className="px-3 mt-8">
+                                    <nav className="space-y-1">
+                                        <NavItem icon={<PlusSquare size={22} />} label="Create Playlist" />
+                                        <NavItem icon={<Heart size={22} />} label="Liked Songs" customIconColor="text-green-500" />
+                                    </nav>
+                                </div>
+                                <div className="px-6 mt-4 mb-4"><div className="h-px bg-white/10 w-full" /></div>
+                                <div className="px-6 flex-1 overflow-y-auto scrollbar-hide">
+                                    <p className="text-[11px] font-bold text-zinc-500 tracking-widest uppercase mb-4">Playlists</p>
+                                    {/* List playlist kamu */}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </aside>
 
@@ -242,138 +286,224 @@ export default function AppLayout({ children }) {
                 </main>
                 <aside
                     className={`
-        hidden lg:flex flex-col shrink-0
-        bg-zinc-950 border-l border-white/10
-        transition-all duration-500 ease-in-out overflow-hidden
-        ${showRightSidebar
-                            ? "w-[320px] opacity-100"
-                            : "w-0 opacity-0 border-l-0"
-                        }
-    `}
+                                hidden lg:flex flex-col shrink-0
+                                bg-zinc-950 border-l border-white/10
+                                transition-all duration-500 ease-in-out overflow-hidden
+                                ${showRightSidebar ? "w-[320px] opacity-100" : "w-0 opacity-0 border-l-0"}
+                            `}
                 >
                     {currentSong ? (
                         <>
                             {/* TAB BUTTON */}
-                            <div className="p-5 pb-0">
-                                <div className="flex items-center gap-2">
+                            <div className="p-5 pb-3">
+                                <div className="flex items-center gap-1 bg-zinc-900/50 p-1 rounded-lg border border-white/5">
                                     <button
                                         onClick={() => setRightTab("details")}
-                                        className={`
-                            flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-                            ${rightTab === "details"
-                                                ? "bg-white text-black"
-                                                : "bg-white/5 text-zinc-400 hover:text-white"
-                                            }
-                        `}
+                                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${rightTab === "details"
+                                            ? "bg-zinc-800 text-white shadow-sm"
+                                            : "text-zinc-400 hover:text-white"
+                                            }`}
                                     >
                                         Details
                                     </button>
-
                                     <button
                                         onClick={() => setRightTab("queue")}
-                                        className={`
-                            flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
-                            ${rightTab === "queue"
-                                                ? "bg-white text-black"
-                                                : "bg-white/5 text-zinc-400 hover:text-white"
-                                            }
-                        `}
+                                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${rightTab === "queue"
+                                            ? "bg-zinc-800 text-white shadow-sm"
+                                            : "text-zinc-400 hover:text-white"
+                                            }`}
                                     >
                                         Queue
                                     </button>
                                 </div>
                             </div>
 
-                            {/* DETAILS */}
+                            {/* DETAILS TAB */}
                             {rightTab === "details" && (
-                                <div className="flex-1 overflow-y-auto scrollbar-hide">
-                                    {/* COVER */}
-                                    <div className="p-5">
-                                        <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                                <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
+                                    {/* COVER & INFO */}
+                                    <div className="px-5 pt-2 pb-4">
+                                        <div className="relative rounded-xl overflow-hidden shadow-2xl mb-5">
                                             <img
-                                                src={currentSong.album?.cover_xl}
+                                                src={currentSong.artist?.cover_xl || currentSong.album?.cover_medium}
                                                 alt={currentSong.title}
-                                                className="w-full aspect-square object-cover"
+                                                className="w-full aspect-square object-cover hover:scale-105 transition-transform duration-700"
                                             />
-
-                                            {/* OVERLAY */}
-                                            <div className="absolute inset-x-3 bottom-3 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 p-4">
-                                                <h2 className="text-xl font-bold text-white line-clamp-2">
-                                                    {currentSong.title}
-                                                </h2>
-
-                                                <p className="text-sm text-zinc-300 mt-1">
-                                                    {currentSong.artist?.name}
-                                                </p>
-                                            </div>
                                         </div>
+                                        <h2 className="text-2xl font-bold text-white line-clamp-2 leading-tight">
+                                            {currentSong.title}
+                                        </h2>
+                                        {currentSong.explicit_lyrics == 1 && (
+                                            <span className="text-[8px] font-black bg-zinc-700 text-zinc-300 px-1 rounded-sm border border-zinc-600">
+                                                E
+                                            </span>
+                                        )}
+                                        <Link
+                                            href={`/artist/${currentSong.artist?.slug}`}
+                                            className="text-zinc-400 hover:text-white hover:underline transition mt-1 inline-block"
+                                        >
+                                            {currentSong.artist?.name}
+                                        </Link>
                                     </div>
 
-                                    {/* ALBUM */}
-                                    <div className="px-5 mt-2">
-                                        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                                            <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">
-                                                Album
-                                            </p>
+                                    {/* ALBUM CARD (CLICKABLE) */}
+                                    <div className="px-5 mb-6">
+                                        <Link
+                                            href={`/album/${currentSong.album?.slug}`}
+                                            className="block bg-zinc-900/50 hover:bg-zinc-800 transition rounded-xl p-4 border border-white/5 group"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                {/* Kiri: Gambar */}
+                                                <img
+                                                    src={currentSong.album?.cover_small}
+                                                    alt="Album Cover"
+                                                    className="w-12 h-12 rounded object-cover shadow-lg"
+                                                />
 
-                                            <h3 className="font-semibold text-white">
-                                                {currentSong.album?.title}
-                                            </h3>
-
-                                            <p className="text-sm text-zinc-400 mt-1">
-                                                {currentSong.artist?.name}
-                                            </p>
-                                        </div>
+                                                {/* Kanan: Title dan Name */}
+                                                <div className="flex flex-col truncate">
+                                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                                                        Album
+                                                    </p>
+                                                    <h3 className="font-semibold text-white group-hover:text-accent transition truncate">
+                                                        {currentSong.album?.title}
+                                                    </h3>
+                                                    <p className="text-xs text-zinc-400 mt-0.5 truncate">
+                                                        {currentSong.artist?.name}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </Link>
                                     </div>
 
                                     {/* LYRICS */}
-                                    <div className="px-5 mt-6 pb-6">
-                                        <div className="bg-gradient-to-b from-green-500/20 to-transparent border border-green-500/10 rounded-xl p-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h3 className="font-semibold text-white">
-                                                    Lyrics
-                                                </h3>
-
+                                    <div className="px-5">
+                                        <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className="font-semibold text-white">Lyrics</h3>
                                                 <button
                                                     onClick={handleMicClick}
-                                                    className="text-green-400 hover:text-green-300 transition"
+                                                    className={`transition-colors p-1.5 rounded-full ${isLyricsMode ? 'bg-accent/20 text-accent' : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'}`}
+                                                    title="Open Full Lyrics"
                                                 >
-                                                    <Mic2 size={18} />
+                                                    <Mic2 size={16} />
                                                 </button>
                                             </div>
-
-                                            <p className="text-sm text-zinc-300 whitespace-pre-line leading-7">
+                                            <p className="text-sm text-zinc-300 whitespace-pre-line leading-relaxed">
                                                 {loadingLyrics
                                                     ? "Memuat lirik..."
-                                                    : parsedLyrics
-                                                        .map((line) => line.text)
-                                                        .join("\n")}
+                                                    : parsedLyrics.map((line) => line.text).join("\n")}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* QUEUE */}
+                            {/* QUEUE TAB */}
                             {rightTab === "queue" && (
                                 <div className="flex-1 overflow-y-auto scrollbar-hide p-5">
-                                    <div className="bg-white/5 rounded-2xl border border-white/5 p-5">
-                                        <h2 className="text-xl font-bold text-white mb-4">
-                                            Queue
-                                        </h2>
+                                    <h2 className="text-xl font-bold text-white mb-6">Queue</h2>
 
-                                        <p className="text-zinc-400 leading-7">
-                                            Lorem ipsum dolor sit amet consectetur adipisicing
-                                            elit. Dolores repellat nemo minus illum officiis
-                                            impedit quos.
+                                    {/* NOW PLAYING */}
+                                    <div className="mb-8">
+                                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                                            Now Playing
                                         </p>
+                                        <div className="flex items-center gap-4 bg-zinc-800/50 rounded-xl p-3 border border-white/5">
+                                            <div className="relative w-12 h-12 shrink-0 rounded-md overflow-hidden">
+                                                {/* Image with opacity applied to it only */}
+                                                <img
+                                                    src={currentSong.album?.cover_medium || currentSong.cover_small}
+                                                    className="w-full h-full object-cover opacity-50"
+                                                />
+
+                                                {/* Equalizer bars, now separate from the image */}
+                                                <div className="absolute inset-0 flex items-center justify-center gap-0.5 z-10">
+                                                    <div className="w-1 h-3 bg-blue-500 rounded-full animate-[bounce_1s_infinite]" />
+                                                    <div className="w-1 h-5 bg-blue-500 rounded-full animate-[bounce_1.2s_infinite]" />
+                                                    <div className="w-1 h-2 bg-blue-500 rounded-full animate-[bounce_0.8s_infinite]" />
+                                                </div>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-accent font-semibold truncate flex items-center gap-2">
+                                                    {currentSong.title}
+                                                    {currentSong.explicit_lyrics === 1 && (
+                                                        <span className="text-[8px] font-black bg-zinc-700 text-zinc-300 px-1 rounded-sm border border-zinc-600">E</span>
+                                                    )}
+                                                </p>
+                                                <p className="text-zinc-400 text-sm truncate">
+                                                    {currentSong.artist?.name}
+                                                </p>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* NEXT QUEUE */}
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                                                {isShuffle ? "AI Auto-Pilot" : "Next Up"}
+                                            </p>
+                                            {isShuffle && <Sparkles size={14} className="text-green-500 animate-pulse" />}
+                                        </div>
+
+                                        {isShuffle ? (
+                                            /* TAMPILAN KETIKA AI AKTIF */
+                                            <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 mt-2">
+                                                <div className="relative mb-4">
+                                                    {/* Efek glow di belakang ikon */}
+                                                    <div className="absolute inset-0 bg-green-500/30 blur-xl rounded-full"></div>
+                                                    <Sparkles className="relative text-green-500 animate-pulse" size={36} />
+                                                </div>
+                                                <h4 className="text-zinc-200 text-sm font-medium mb-1.5">
+                                                    AI Sedang Mencocokkan Vibe
+                                                </h4>
+                                                <p className="text-zinc-500 text-xs leading-relaxed px-2">
+                                                    DJ Pribadi kamu akan memilihkan lagu berikutnya secara otomatis berdasarkan mood, genre, dan style dari lagu ini.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            /* TAMPILAN NORMAL (STATIS) */
+                                            <div className="space-y-1">
+                                                {songs.slice(currentIndex + 1).map((song, index) => (
+                                                    <div
+                                                        key={song.id}
+                                                        onClick={() => playSong(song, currentIndex + 1 + index)}
+                                                        className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
+                                                    >
+                                                        <div className="relative w-10 h-10 shrink-0 rounded-md overflow-hidden">
+                                                            <img
+                                                                src={song.album?.cover_small || song.cover_small}
+                                                                className="w-full h-full object-cover transition-opacity group-hover:opacity-40"
+                                                                alt="Cover"
+                                                            />
+                                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Play size={16} className="text-white fill-white" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-zinc-200 text-sm font-medium truncate group-hover:text-white">
+                                                                {song.title}
+                                                            </p>
+                                                            <p className="text-zinc-500 text-xs truncate group-hover:text-zinc-400">
+                                                                {song.artist?.name}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
                         </>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-zinc-500">
-                            Tidak ada lagu diputar
+                        <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
+                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                                <Mic2 size={24} className="text-zinc-600" />
+                            </div>
+                            <p className="text-sm font-medium">Tidak ada lagu diputar</p>
                         </div>
                     )}
                 </aside>
@@ -401,9 +531,13 @@ export default function AppLayout({ children }) {
                                 >
                                     {currentSong.title}
                                 </Link>
-                                <p className="text-[11px] text-zinc-400 hover:text-white cursor-pointer transition truncate mt-0.5">
+                                <Link
+                                    href={`/artist/${currentSong.artist?.slug}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-[11px] text-zinc-400 text-sm hover:underline"
+                                >
                                     {currentSong.artist?.name}
-                                </p>
+                                </Link>
                             </div>
                         </>
                     )}
@@ -420,18 +554,16 @@ export default function AppLayout({ children }) {
 
                         <button
                             onClick={togglePlay}
-                            className="w-8 h-8 md:w-9 md:h-9 bg-white rounded-full flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
+                            disabled={isLoading}
+                            className="w-8 h-8 md:w-9 md:h-9 bg-white rounded-full flex items-center justify-center hover:scale-105 transition-transform active:scale-95 disabled:opacity-70 disabled:cursor-wait"
                         >
-                            {isPlaying ? (
-                                <Pause
-                                    size={18}
-                                    className="text-black fill-current"
-                                />
+                            {isLoading ? (
+                                // Spinner simple
+                                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                            ) : isPlaying ? (
+                                <Pause size={18} className="text-black fill-current" />
                             ) : (
-                                <Play
-                                    size={18}
-                                    className="text-black fill-current ml-1"
-                                />
+                                <Play size={18} className="text-black fill-current" />
                             )}
                         </button>
 
@@ -440,6 +572,18 @@ export default function AppLayout({ children }) {
                             className="text-zinc-400 hover:text-white transition cursor-pointer"
                         >
                             <SkipForward className="w-5 h-5 fill-current" />
+                        </button>
+                        <button
+                            onClick={toggleShuffle}
+                            className={`
+                                        transition
+                                        ${isShuffle
+                                    ? "text-green-500"
+                                    : "text-zinc-400 hover:text-white"
+                                }
+                                    `}
+                        >
+                            <Sparkles size={18} />
                         </button>
                     </div>
 

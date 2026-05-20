@@ -23,6 +23,7 @@ class SearchController extends Controller
                 'duration',
                 'audio_path',
                 'lyrics_path',
+                'explicit_lyrics',
             )
             ->get();
 

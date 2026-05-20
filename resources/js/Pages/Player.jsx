@@ -87,7 +87,11 @@ const Player = () => {
         <div className="relative h-full overflow-hidden flex flex-col md:flex-row">
             {/* BACKGROUND BLUR */}
             <div
-                className="absolute inset-0 opacity-20 blur-[120px] scale-150 pointer-events-none"
+                className=" absolute inset-0
+                            opacity-40
+                            blur-[90px]
+                            scale-125
+                            pointer-events-none"
                 style={{
                     backgroundImage: `url(${currentSong.album?.cover_xl ||
                         currentSong.album?.cover_medium
@@ -138,9 +142,9 @@ const Player = () => {
                             relative z-10 h-full flex flex-col items-center justify-center
                             pt-0 pb-0 transition-all duration-700 ease-in-out
                             ${isLyricsMode
-                                                ? "absolute inset-0 w-full"
-                                                : "flex-1"
-                                            }
+                            ? "absolute inset-0 w-full"
+                            : "flex-1"
+                        }
                         `}
                 >
                     <div

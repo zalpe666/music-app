@@ -20,6 +20,7 @@ class Song extends Model
         'duration',
 
         'explicit_lyrics',
+        
 
         'rank',
 

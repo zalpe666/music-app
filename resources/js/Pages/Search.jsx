@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import usePlayerStore from "@/Stores/playerStore";
+import { Link } from "@inertiajs/react";
+
 
 const Search = ({ songs = [] }) => {
     // Beri default array kosong jaga-jaga
@@ -26,8 +28,6 @@ const Search = ({ songs = [] }) => {
                 song.album?.title?.toLowerCase().includes(search.toLowerCase()))
         );
     });
-
-    // PERHATIKAN: Kita TIDAK LAGI menggunakan <AppLayout> di sini
     return (
         <div className="p-8">
             <div className="mb-8">
@@ -62,9 +62,13 @@ const Search = ({ songs = [] }) => {
                                 <h2 className="text-white font-bold text-lg truncate">
                                     {song.title}
                                 </h2>
-                                <p className="text-zinc-400 text-sm truncate">
+                                <Link
+                                    href={`/artist/${song.artist?.slug}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-zinc-400 text-sm hover:underline"
+                                >
                                     {song.artist?.name}
-                                </p>
+                                </Link>
                                 <p className="text-zinc-500 text-xs mt-1 truncate">
                                     {song.album?.title}
                                 </p>
