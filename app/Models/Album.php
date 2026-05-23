@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Support\Str;
 class Album extends Model
 {
     protected $fillable = [
@@ -24,5 +24,13 @@ class Album extends Model
     public function artist()
     {
         return $this->belongsTo(Artist::class);
+    }
+    protected static function booted()
+    {
+        static::creating(function ($album) {
+            if (empty($album->slug)) {
+                $album->slug = Str::slug($album->title);
+            }
+        });
     }
 }

@@ -71,7 +71,7 @@ const Dashboard = ({ songs = [] }) => {
                             onClick={() => playSong(song)}
                             className="bg-zinc-900/40 p-4 rounded-xl hover:bg-zinc-800 transition cursor-pointer group"
                         >
-                            <img src={song.album?.cover_medium} className="rounded-lg mb-4 shadow-lg" />
+                            <img src={song.album?.cover_xl} className="rounded-lg mb-4 shadow-lg" />
                             <h3 className="font-semibold truncate">{song.title}</h3>
                             <p className="text-sm text-zinc-400">{song.artist?.name}</p>
                         </div>
@@ -119,7 +119,7 @@ const Dashboard = ({ songs = [] }) => {
                         >
                             <div className="relative w-16 h-16 shrink-0 bg-zinc-800">
                                 <img
-                                    src={song.album?.cover_medium || song.cover_small}
+                                    src={song.album?.cover_xl || song.cover_small}
                                     className="w-full h-full object-cover group-hover:opacity-40 transition-opacity duration-300"
                                     alt={song.title}
                                 />
@@ -200,7 +200,7 @@ const Dashboard = ({ songs = [] }) => {
                             >
                                 <div className="relative aspect-square mb-4 rounded-md overflow-hidden shadow-lg bg-zinc-800">
                                     <img
-                                        src={album?.cover_medium || '/default-album.jpg'}
+                                        src={album?.cover_xl || '/default-album.jpg'}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         alt={album?.title}
                                     />

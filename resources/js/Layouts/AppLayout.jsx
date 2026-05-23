@@ -331,7 +331,7 @@ export default function AppLayout({ children }) {
                                     <div className="px-5 pt-2 pb-4">
                                         <div className="relative rounded-xl overflow-hidden shadow-2xl mb-5">
                                             <img
-                                                src={currentSong.artist?.cover_xl || currentSong.album?.cover_medium}
+                                                src={currentSong.artist?.picture_xl || currentSong.album?.cover_medium}
                                                 alt={currentSong.title}
                                                 className="w-full aspect-square object-cover hover:scale-105 transition-transform duration-700"
                                             />
@@ -361,7 +361,7 @@ export default function AppLayout({ children }) {
                                             <div className="flex items-center gap-4">
                                                 {/* Kiri: Gambar */}
                                                 <img
-                                                    src={currentSong.album?.cover_small}
+                                                    src={currentSong.album?.cover_xl}
                                                     alt="Album Cover"
                                                     className="w-12 h-12 rounded object-cover shadow-lg"
                                                 />
@@ -494,7 +494,7 @@ export default function AppLayout({ children }) {
                                             <div className="relative w-12 h-12 shrink-0 rounded-md overflow-hidden">
                                                 {/* Image with opacity applied to it only */}
                                                 <img
-                                                    src={currentSong.album?.cover_medium || currentSong.cover_small}
+                                                    src={currentSong.album?.cover_xl || currentSong.cover_small}
                                                     className="w-full h-full object-cover opacity-50"
                                                 />
 
@@ -555,7 +555,7 @@ export default function AppLayout({ children }) {
                                                     >
                                                         <div className="relative w-10 h-10 shrink-0 rounded-md overflow-hidden">
                                                             <img
-                                                                src={song.album?.cover_small || song.cover_small}
+                                                                src={song.album?.cover_xl || song.cover_small}
                                                                 className="w-full h-full object-cover transition-opacity group-hover:opacity-40"
                                                                 alt="Cover"
                                                             />
@@ -599,7 +599,7 @@ export default function AppLayout({ children }) {
                                 <div className="relative overflow-hidden rounded-md h-14 w-14 group cursor-pointer shrink-0">
                                     {/* Gunakan cover dari database */}
                                     <img
-                                        src={currentSong.album?.cover_medium}
+                                        src={currentSong.album?.cover_xl}
                                         className="w-full h-full object-cover group-hover:opacity-80 transition"
                                         alt="Cover"
                                     />

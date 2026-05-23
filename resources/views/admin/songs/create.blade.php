@@ -93,7 +93,7 @@
                             Song Title
                         </label>
 
-                        <input type="text" name="song_title" class="form-control">
+                        <input type="text" name="song_title" class="form-control" id="song_title">
 
                     </div>
 
@@ -104,10 +104,12 @@
                             Artist
                         </label>
 
-                        <input type="text" name="artist_name" class="form-control">
+                        <input type="text" name="artist_name" class="form-control" id="artist_name">
 
                     </div>
-
+                    <button type="button" class="btn btn-primary mt-2" onclick="copySongData()">
+                        Copy Gabungan (Artist - Title)
+                    </button>
                     <!-- Album -->
                     <div class="mb-3">
 
@@ -151,7 +153,13 @@
         </div>
 
     </div>
-
+    <script>
+        function combineData() {
+            const title = document.getElementById('song_title').value;
+            const artist = document.getElementById('artist_name').value;
+            document.getElementById('full_title').value = `${artist} - ${title}`;
+        }
+    </script>
     <script>
         let debounce;
 

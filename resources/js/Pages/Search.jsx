@@ -54,7 +54,7 @@ const Search = ({ songs = [] }) => {
                             className="bg-zinc-900 hover:bg-zinc-800 transition rounded-2xl p-4 flex items-center gap-4 cursor-pointer"
                         >
                             <img
-                                src={song.album?.cover_medium || song.cover_small}
+                                src={song.album?.cover_xl || song.cover_small}
                                 alt={song.title}
                                 className="w-20 h-20 rounded-xl object-cover"
                             />
