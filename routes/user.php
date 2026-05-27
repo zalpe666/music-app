@@ -44,10 +44,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/player', [UserHomeController::class, 'player'])->name('player');
     Route::get('/artist/{artist:slug}', [UserHomeController::class, 'artist']);
     Route::get('/stream/{audio_path}', [UserStreamingController::class, 'stream']);
+    Route::get('/artists', [UserHomeController::class, 'allArtists'])->name('artists');
     Route::get('/lyrics/{lyrics_path}', [UserStreamingController::class, 'lyrics']);
     Route::delete('/stream/{id}', [UserStreamingController::class, 'delete']);
     Route::get('/album/{album:slug}', [UserHomeController::class, 'album']);
-
+    Route::inertia('/PlayerMini', 'PlayerMini')->name('player.mini');
+    Route::inertia('/LyricsMini', 'LyricsMini')->name('lyric.mini');
 
     Route::get('/profile', [ProfileController::class, 'edit',])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update',])->name('profile.update');

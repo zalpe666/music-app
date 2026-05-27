@@ -96,13 +96,6 @@ export default function Artist({ artist, songs }) {
 
                 {/* Konten Hero */}
                 <div className="relative z-10 flex flex-col gap-5 w-full max-w-7xl mx-auto">
-                    {artist.intCharted > 0 && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-blue-300 bg-blue-500/20 w-fit px-3 py-1.5 rounded-full border border-blue-500/30 backdrop-blur-md">
-                            <Sparkles size={14} />
-                            <span>Top Charted Artist</span>
-                        </div>
-                    )}
-
                     {artist.strArtistLogo ? (
                         <img
                             src={artist.strArtistLogo}
@@ -172,7 +165,7 @@ export default function Artist({ artist, songs }) {
                     </div>
 
                     <div className="space-y-1 mt-2">
-                        {songs.slice(0, 5).map((song, index) => {
+                        {songs.map((song, index) => {
                             const isCurrentlyPlaying = currentSong?.id === song.id;
 
                             return (

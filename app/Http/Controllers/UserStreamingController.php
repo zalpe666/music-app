@@ -10,26 +10,9 @@ class UserStreamingController extends Controller
     public function stream($audio_path)
     {
         try {
-            /*
-            |--------------------------------------------------------------------------
-            | CREATE DIRECTORY
-            |--------------------------------------------------------------------------
-            */
             $this->ensureDirectoryExists(storage_path('app/temp_songs'));
-
-            /*
-            |--------------------------------------------------------------------------
-            | FILE PATH
-            |--------------------------------------------------------------------------
-            */
             $fileName = $audio_path . '.mp3';
             $fullPath = storage_path('app/temp_songs/' . $fileName);
-
-            /*
-            |--------------------------------------------------------------------------
-            | DOWNLOAD HANYA JIKA BELUM ADA
-            |--------------------------------------------------------------------------
-            */
             if (!file_exists($fullPath)) {
                 $url = "https://drive.google.com/uc?export=download&id=" . $audio_path;
 
@@ -48,12 +31,6 @@ class UserStreamingController extends Controller
                     throw new \Exception('Gagal menulis audio.');
                 }
             }
-
-            /*
-            |--------------------------------------------------------------------------
-            | STREAM AUDIO DARI PENYIMPANAN LOKAL
-            |--------------------------------------------------------------------------
-            */
             return response()->file($fullPath, [
                 "Content-Type"  => "audio/mpeg",
                 "Accept-Ranges" => "bytes",
@@ -66,7 +43,6 @@ class UserStreamingController extends Controller
             ], 500);
         }
     }
-
     /*
     |--------------------------------------------------------------------------
     | STREAM LYRICS

@@ -38,28 +38,8 @@ const Dashboard = ({ songs = [] }) => {
     ];
 
     return (
-        <div className="p-6 md:p-8 space-y-12">
-            {/* HERO SECTION */}
-            <section className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-white/10 pb-6">
-                <div>
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500 mb-2 tracking-tight">
-                        System Ready.
-                    </h1>
-                    <p className="text-zinc-400 flex items-center gap-2 text-sm font-medium">
-                        <Activity size={16} className="text-green-500 animate-pulse" />
-                        Audio engine active. {songs.length} tracks indexed.
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button className="bg-white text-black px-4 py-2 rounded-full font-bold text-sm hover:scale-105 transition flex items-center gap-2">
-                        <Play size={16} className="fill-black" /> Play All
-                    </button>
-                    <button className="bg-zinc-800 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-zinc-700 transition flex items-center gap-2">
-                        <Zap size={16} className="text-accent" /> Shuffle
-                    </button>
-                </div>
-            </section>
-            <div className="p-8">
+        <div className="p-4 md:p-8 space-y-12">
+            <div className="">
                 <h2 className="text-2xl font-bold mb-6">
                     {currentSong ? `Rekomendasi berdasarkan ${currentSong.title}` : "Lagu Populer"}
                 </h2>

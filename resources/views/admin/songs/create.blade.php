@@ -140,7 +140,40 @@
 
                         <textarea name="lyrics" class="form-control" rows="10" placeholder="[00:12.00] Hello world..."></textarea>
                     </div>
+                    <!-- Preview Sync Lyrics -->
+                    <div class="card border-0 bg-dark text-white mt-4">
 
+                        <div class="card-body">
+
+                            <h5 class="fw-bold mb-3">
+                                Lyrics Sync Preview
+                            </h5>
+
+                            <!-- AUDIO PLAYER -->
+                            <audio id="audioPreview" controls class="w-100 mb-4"></audio>
+
+                            <!-- CURRENT TIME -->
+                            <div class="mb-3 text-info">
+                                Current Time:
+                                <span id="currentTimeText">
+                                    0:00
+                                </span>
+                            </div>
+
+                            <!-- LYRICS -->
+                            <div id="lyricsPreview"
+                                style="
+                height:300px;
+                overflow:auto;
+                background:#111;
+                padding:20px;
+                border-radius:12px;
+            ">
+                            </div>
+
+                        </div>
+
+                    </div>
                     <!-- Button -->
                     <button class="btn btn-primary w-100 py-3 fw-bold">
                         Save Song
@@ -153,6 +186,117 @@
         </div>
 
     </div>
+    <script>
+        const audioInput = document.querySelector('[name="audio_file"]');
+        const audioPreview = document.getElementById('audioPreview');
+
+        const lyricsInput = document.querySelector('[name="lyrics"]');
+        const lyricsPreview = document.getElementById('lyricsPreview');
+
+        const currentTimeText = document.getElementById('currentTimeText');
+
+        let parsedLyrics = [];
+
+        // LOAD AUDIO
+        audioInput.addEventListener('change', function(e) {
+
+            const file = e.target.files[0];
+
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+
+            audioPreview.src = url;
+        });
+
+        // PARSE LYRICS
+        function parseLyrics(text) {
+
+            const lines = text.split('\n');
+
+            return lines.map(line => {
+
+                const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+
+                if (!match) return null;
+
+                const minute = parseInt(match[1]);
+
+                const second = parseFloat(match[2]);
+
+                return {
+                    time: minute * 60 + second,
+                    text: match[3]
+                };
+
+            }).filter(Boolean);
+        }
+
+        // RENDER LYRICS
+        function renderLyrics(activeIndex = -1) {
+
+            lyricsPreview.innerHTML = '';
+
+            parsedLyrics.forEach((line, index) => {
+
+                const div = document.createElement('div');
+
+                div.className = `
+                py-2 px-3 rounded mb-2
+                ${index === activeIndex
+                    ? 'bg-primary text-white fw-bold'
+                    : 'text-secondary'}
+            `;
+
+                div.innerText = line.text;
+
+                div.id = `lyric-${index}`;
+
+                lyricsPreview.appendChild(div);
+            });
+        }
+
+        // UPDATE LYRICS
+        lyricsInput.addEventListener('input', function() {
+
+            parsedLyrics = parseLyrics(this.value);
+
+            renderLyrics();
+        });
+
+        // AUDIO TIME UPDATE
+        audioPreview.addEventListener('timeupdate', function() {
+
+            const currentTime = audioPreview.currentTime;
+
+            currentTimeText.innerText =
+                Math.floor(currentTime / 60) +
+                ':' +
+                String(Math.floor(currentTime % 60)).padStart(2, '0');
+
+            let activeIndex = -1;
+
+            parsedLyrics.forEach((line, index) => {
+
+                if (currentTime >= line.time) {
+                    activeIndex = index;
+                }
+            });
+
+            renderLyrics(activeIndex);
+
+            // AUTO SCROLL
+            const activeLyric = document.getElementById(`lyric-${activeIndex}`);
+
+            if (activeLyric) {
+
+                activeLyric.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        });
+    </script>
     <script>
         function combineData() {
             const title = document.getElementById('song_title').value;

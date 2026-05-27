@@ -20,15 +20,34 @@ import {
     PanelRightOpen,
     Globe,      // Pastikan ini ada
     MapPin,
+    UserSearch,
     // Gunakan ikon sosial media alternatif ini jika Facebook/Twitter error:
     Disc,       // Pengganti ikon sosial
     Send        // Pengganti ikon pesan/Twitter
 } from "lucide-react";
 import usePlayerStore from "@/Stores/playerStore";
-
+import MobileBottomNav from "@/Components/MobileBottomNav";
+import MobileMiniPlayer from "@/Components/MobileMiniPlayer";
+// Tambahkan ini di bagian atas file AppLayout.jsx
+import PlayerInfo from "@/Components/Player/PlayerInfo";
+import PlayerControls from "@/Components/Player/PlayerControls";
+import PlayerExtras from "@/Components/Player/PlayerExtras";
 export default function AppLayout({ children }) {
+    const { url } = usePage();
+
+    // 2. Buat Ref untuk container utama yang memiliki scroll
+    const scrollContainerRef = useRef(null);
+
+    // 3. Gunakan useEffect untuk reset scroll saat URL berubah
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+                top: 0,
+                behavior: 'instant' // 'instant' agar langsung pindah tanpa animasi scroll
+            });
+        }
+    }, [url]);
     const audioRef = useRef(null);
-    const { url } = usePage(); // Untuk mengetahui halaman mana yang sedang aktif
     const [isLoading, setIsLoading] = useState(false);
     // AMBIL DATA DARI ZUSTAND STORE
     const {
@@ -234,8 +253,6 @@ export default function AppLayout({ children }) {
     return (
         <div className="flex flex-col h-screen bg-black text-zinc-100 font-sans overflow-hidden">
             <div className="flex flex-1 overflow-hidden">
-                {/* SIDEBAR */}
-                {/* SIDEBAR */}
                 <aside className={`bg-black flex-col hidden md:flex z-20 shrink-0 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-16"}`}>
                     <div className="flex flex-col h-full pt-6 pb-4">
                         {/* Tombol Toggle */}
@@ -256,13 +273,35 @@ export default function AppLayout({ children }) {
                         <div className="px-3">
                             <nav className="space-y-1">
                                 <Link href={route("dashboard")}>
-                                    <NavItem icon={<Home size={22} />} label={isSidebarOpen ? "Home" : ""} active={url.startsWith("/dashboard")} />
+                                    <NavItem
+                                        icon={<Home size={22} />}
+                                        label={isSidebarOpen ? "Home" : ""}
+                                        active={url.startsWith("/dashboard")}
+                                    />
                                 </Link>
+
                                 <Link href={route("search")}>
-                                    <NavItem icon={<Search size={22} />} label={isSidebarOpen ? "Search" : ""} active={url.startsWith("/search")} />
+                                    <NavItem
+                                        icon={<Search size={22} />}
+                                        label={isSidebarOpen ? "Search" : ""}
+                                        active={url.startsWith("/search")}
+                                    />
                                 </Link>
+
                                 <Link href={route("library")}>
-                                    <NavItem icon={<Library size={22} />} label={isSidebarOpen ? "Your Library" : ""} active={url.startsWith("/library")} />
+                                    <NavItem
+                                        icon={<Library size={22} />}
+                                        label={isSidebarOpen ? "Your Library" : ""}
+                                        active={url.startsWith("/library")}
+                                    />
+                                </Link>
+
+                                <Link href={route("artists")}>
+                                    <NavItem
+                                        icon={<UserSearch size={22} />}
+                                        label={isSidebarOpen ? "All Artists" : ""}
+                                        active={url.startsWith("/artists")}
+                                    />
                                 </Link>
                             </nav>
                         </div>
@@ -474,6 +513,7 @@ export default function AppLayout({ children }) {
                                                         )} */}
                                                     </div>
                                                 </div>
+
                                             </div>
                                         </div>
                                     </div>
@@ -590,178 +630,41 @@ export default function AppLayout({ children }) {
                 </aside>
             </div>
 
-            {/* PLAYER BAR DI BAWAH */}
-            <footer className="h-[90px] w-full shrink-0 bg-zinc-950/80 backdrop-blur-xl border-t border-white/10 px-6 flex items-center justify-between z-30">
-                <div className="flex items-center gap-4 w-1/3">
-                    {currentSong && (
-                        <>
-                            <Link href={route("player")}>
-                                <div className="relative overflow-hidden rounded-md h-14 w-14 group cursor-pointer shrink-0">
-                                    {/* Gunakan cover dari database */}
-                                    <img
-                                        src={currentSong.album?.cover_xl}
-                                        className="w-full h-full object-cover group-hover:opacity-80 transition"
-                                        alt="Cover"
-                                    />
-                                </div>
-                            </Link>
-                            <div className="truncate flex flex-col justify-center">
-                                <Link
-                                    href={route("player")}
-                                    className="font-bold text-sm text-white hover:underline cursor-pointer truncate"
-                                >
-                                    {currentSong.title}
-                                </Link>
-                                <Link
-                                    href={`/artist/${currentSong.artist?.slug}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[11px] text-zinc-400 text-sm hover:underline"
-                                >
-                                    {currentSong.artist?.name}
-                                </Link>
-                            </div>
-                        </>
-                    )}
-                </div>
+            <footer className="hidden md:flex h-[90px] w-full shrink-0 bg-zinc-950/80 backdrop-blur-xl border-t border-white/10 px-6 items-center justify-between z-30">
+                <PlayerInfo currentSong={currentSong} />
 
-                <div className="flex flex-col items-center w-1/3 max-w-xl">
-                    <div className="flex items-center gap-6 mb-2">
-                        <button
-                            onClick={prevSong}
-                            className="text-zinc-400 hover:text-white transition cursor-pointer"
-                        >
-                            <SkipBack className="w-5 h-5 fill-current" />
-                        </button>
+                <PlayerControls
+                    prevSong={prevSong}
+                    togglePlay={togglePlay}
+                    nextSong={nextSong}
+                    toggleShuffle={toggleShuffle}
+                    isShuffle={isShuffle}
+                    isPlaying={isPlaying}
+                    isLoading={isLoading}
+                    currentTime={currentTime}
+                    duration={duration}
+                    formatTime={formatTime}
+                    handleProgressChange={handleProgressChange}
+                    handleProgressRelease={handleProgressRelease}
+                    progressPercent={progressPercent}
+                    setIsDragging={setIsDragging}
+                />
 
-                        <button
-                            onClick={togglePlay}
-                            disabled={isLoading}
-                            className="w-8 h-8 md:w-9 md:h-9 bg-white rounded-full flex items-center justify-center hover:scale-105 transition-transform active:scale-95 disabled:opacity-70 disabled:cursor-wait"
-                        >
-                            {isLoading ? (
-                                // Spinner simple
-                                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                            ) : isPlaying ? (
-                                <Pause size={18} className="text-black fill-current" />
-                            ) : (
-                                <Play size={18} className="text-black fill-current" />
-                            )}
-                        </button>
-
-                        <button
-                            onClick={nextSong}
-                            className="text-zinc-400 hover:text-white transition cursor-pointer"
-                        >
-                            <SkipForward className="w-5 h-5 fill-current" />
-                        </button>
-                        <button
-                            onClick={toggleShuffle}
-                            className={`
-                                        transition
-                                        ${isShuffle
-                                    ? "text-green-500"
-                                    : "text-zinc-400 hover:text-white"
-                                }
-                                    `}
-                        >
-                            <Sparkles size={18} />
-                        </button>
-                    </div>
-
-                    <div className="w-full flex items-center gap-2 group">
-                        <span className="text-[11px] text-zinc-400 tabular-nums min-w-[35px] text-right">
-                            {formatTime(currentTime)}
-                        </span>
-                        <div className="relative flex-1 h-1 flex items-center cursor-pointer">
-                            <input
-                                type="range"
-                                min="0"
-                                max={duration || 100}
-                                step="0.01"
-                                value={currentTime || 0}
-                                onMouseDown={() => setIsDragging(true)}
-                                onTouchStart={() => setIsDragging(true)}
-                                onChange={handleProgressChange}
-                                onMouseUp={handleProgressRelease}
-                                onTouchEnd={handleProgressRelease}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                            />
-                            <div className="absolute inset-0 w-full h-1 bg-zinc-800 rounded-full overflow-hidden pointer-events-none">
-                                <div
-                                    className="h-full bg-white group-hover:bg-green-500 transition-colors"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
-                            </div>
-                            <div
-                                className="absolute h-3 w-3 bg-white rounded-full shadow pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10 -ml-1.5"
-                                style={{ left: `${progressPercent}%` }}
-                            />
-                        </div>
-                        <span className="text-[11px] text-zinc-400 tabular-nums min-w-[35px]">
-                            {formatTime(duration)}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-4 w-1/3 text-zinc-400">
-                    <button
-                        onClick={handleMicClick}
-                        className={`transition hover:text-white ${currentSong?.lyrics_path
-                            ? "cursor-pointer"
-                            : "cursor-not-allowed opacity-50"
-                            }`}
-                    >
-                        <Mic2
-                            size={18}
-                            className={isLyricsMode ? "text-green-500" : ""}
-                        />
-                    </button>
-                    <button
-                        onClick={() => setShowRightSidebar(!showRightSidebar)}
-                        className="text-zinc-400 hover:text-white transition"
-                    >
-                        {showRightSidebar ? (
-                            <PanelRightClose size={18} />
-                        ) : (
-                            <PanelRightOpen size={18} />
-                        )}
-                    </button>
-                    <div className="flex items-center gap-2 relative w-24 group">
-                        <button
-                            onClick={() => setVolume(volume === 0 ? 1 : 0)}
-                            className="hover:text-white transition"
-                        >
-                            {volume === 0 ? (
-                                <VolumeX size={18} />
-                            ) : (
-                                <Volume2 size={18} />
-                            )}
-                        </button>
-                        <div className="relative flex-1 h-1 flex items-center">
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.01"
-                                value={volume}
-                                onChange={handleVolumeChange}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                            />
-                            <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden pointer-events-none">
-                                <div
-                                    className="h-full bg-white group-hover:bg-green-500 transition-colors"
-                                    style={{ width: `${volume * 100}%` }}
-                                />
-                            </div>
-                            <div
-                                className="absolute h-3 w-3 bg-white rounded-full shadow pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10 -ml-1.5"
-                                style={{ left: `${volume * 100}%` }}
-                            />
-                        </div>
-                    </div>
-                </div>
+                <PlayerExtras
+                    isLyricsMode={isLyricsMode}
+                    handleMicClick={handleMicClick}
+                    showRightSidebar={showRightSidebar}
+                    setShowRightSidebar={setShowRightSidebar}
+                    volume={volume}
+                    setVolume={setVolume}
+                    handleVolumeChange={handleVolumeChange}
+                />
             </footer>
-
+            {/* KOMPONEN MOBILE (Sudah benar seperti yang kita bahas tadi) */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col">
+                {url !== '/PlayerMini' && url !== '/LyricsMini' && <MobileMiniPlayer />}
+                <MobileBottomNav />
+            </div>
             {/* TAG AUDIO TERSEMBUNYI */}
             <audio
                 ref={audioRef}

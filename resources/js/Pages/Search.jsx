@@ -29,7 +29,7 @@ const Search = ({ songs = [] }) => {
         );
     });
     return (
-        <div className="p-8">
+        <div className="p-2 sm:p-6">
             <div className="mb-8">
                 <h1 className="text-4xl font-black text-white">Search</h1>
                 <p className="text-zinc-400 mt-2">Browse your favorite music</p>

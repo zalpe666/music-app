@@ -15,7 +15,14 @@ class UserHomeController extends Controller
     | DASHBOARD
     |--------------------------------------------------------------------------
     */
+    public function allArtists()
+    {
+        $artists = Artist::with('songs')->get();
 
+        return Inertia::render('AllArtist', [
+            'artists' => $artists
+        ]);
+    }
     public function dashboard()
     {
         $songs = Song::with([
