@@ -25,7 +25,8 @@ class UserSearchController extends Controller
             $songs = Song::with(['artist', 'album'])
                 ->where('title', 'LIKE', "%{$query}%")
                 ->orWhereHas('artist', function ($q) use ($query) {
-                    $q->where('name', 'LIKE', "%{$query}%");
+                    $q->where('name', 'LIKE', "%{$query}%")
+                        ->orWhere('strGenre', 'LIKE', "%{$query}%"); // 👈 PASTIKAN BARIS INI ADA;
                 })
                 ->limit(20)->get();
 

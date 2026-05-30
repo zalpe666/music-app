@@ -2,9 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import usePlayerStore from "@/Stores/playerStore";
 import { Link } from "@inertiajs/react";
-import { Play, Mic2, ListMusic, Disc, Sparkles, Clock, History } from "lucide-react"; // Tambahkan icon History
+import { Play, Mic2, ListMusic, Disc, Sparkles, Clock, History, Compass } from "lucide-react"; // Tambahkan icon History
 
-const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [] }) => {
+const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] }) => {
     const {
         playSong,
         setPlaylist,
@@ -164,7 +164,41 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [] }) => {
                     </div>
                 </section>
             )}
+            {genres && genres.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-2 mb-6">
+                        <Compass size={24} className="text-zinc-500" />
+                        <h2 className="text-2xl font-bold text-white">Explore Genres</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
+                        {genres.map((genre, i) => {
+                            // Array warna estetis bergaya Spotify
+                            const colors = [
+                                "bg-pink-600", "bg-purple-600", "bg-blue-600",
+                                "bg-emerald-600", "bg-orange-600", "bg-red-600",
+                                "bg-teal-600", "bg-indigo-600"
+                            ];
+                            const colorClass = colors[i % colors.length];
 
+                            return (
+                                <Link
+                                    key={genre}
+                                    href={`/genre/${genre}`} // Lempar ke halaman Search
+                                    className={`${colorClass} rounded-xl p-4 h-32 relative overflow-hidden group cursor-pointer hover:scale-[1.02] transition-transform duration-300 shadow-md block`}
+                                >
+                                    <h3 className="text-xl font-bold text-white relative z-10 capitalize">
+                                        {genre}
+                                    </h3>
+
+                                    {/* Aksen grafis abstrak di pojok kanan bawah */}
+                                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-black/20 rounded-full rotate-12 group-hover:scale-110 transition-transform duration-300 shadow-lg backdrop-blur-sm"></div>
+                                    <div className="absolute top-1/2 -right-6 w-12 h-12 bg-white/10 rounded-md rotate-45 group-hover:rotate-90 transition-transform duration-500"></div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
             {/* 5. FEATURED ARTISTS */}
             {uniqueArtists.length > 0 && (
                 <section>

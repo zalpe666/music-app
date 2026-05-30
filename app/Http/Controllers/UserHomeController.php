@@ -42,6 +42,7 @@ class UserHomeController extends Controller
             ->get();
 
         $recentSongs = [];
+        
         if (auth()->check()) {
             // Ambil relasi lagu beserta artis dan albumnya
             $recentHistories = \App\Models\UserSongHistory::with(['song.artist', 'song.album'])
@@ -57,10 +58,17 @@ class UserHomeController extends Controller
             ->orderBy('play_count', 'asc') // Urutkan dari yang terkecil
             ->limit(5)
             ->get();
+            $genres = Artist::whereNotNull('strGenre')
+        ->where('strGenre', '!=', '')
+        ->select('strGenre')
+        ->distinct()
+        ->limit(8) // Ambil 8 genre saja agar rapi (grid 4x2)
+        ->pluck('strGenre');
         return Inertia::render('Dashboard', [
             'songs' => $songs,
             'hiddenGems' => $hiddenGems ,// Kirim data baru ini
             'recentSongs' => $recentSongs, // <-- DATA UNTUK TAMPILAN
+            'genres' => $genres, // <-- KIRIM DATA GENRE INI
         ]);
     }
 

@@ -10,6 +10,7 @@ use Google\Client;
 use App\Http\Controllers\UserStreamingController;
 use App\Http\Controllers\UserHomeController;
 use App\Http\Controllers\PlaylistController;
+use App\Http\Controllers\UserGenreController;
 use App\Http\Controllers\UserSearchController;
 
 /*
@@ -50,9 +51,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/artists', [UserHomeController::class, 'allArtists'])->name('artists');
     Route::get('/lyrics/{lyrics_path}', [UserStreamingController::class, 'lyrics']);
     Route::delete('/stream/{id}', [UserStreamingController::class, 'delete']);
+    Route::get('/genre/{genre}', [UserGenreController::class, 'show'])->name('genre.show');
 
     Route::post('/songs/{id}/play', [UserStreamingController::class, 'recordPlay'])->name('songs.play');
-    
+
     Route::get('/album/{album:slug}', [UserHomeController::class, 'album']);
     Route::inertia('/PlayerMini', 'PlayerMini')->name('player.mini');
     Route::inertia('/LyricsMini', 'LyricsMini')->name('lyric.mini');
