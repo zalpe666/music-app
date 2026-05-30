@@ -29,11 +29,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        $topSongIds = [];
+        if ($request->user()) {
+            $topSongIds = \App\Models\UserSongHistory::where('user_id', $request->user()->id)
+                ->orderBy('play_count', 'desc')
+                ->limit(15)
+                ->pluck('song_id')
+                ->toArray();
+        }
+        return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user(),
+                'top_song_ids' => $topSongIds,
             ],
-        ];
+            // Tambahkan baris ini untuk mengirim daftar playlist user
+            'playlists' => $request->user()
+                ? $request->user()->playlists()->latest()->get()
+                : [],
+        ]);
     }
 }

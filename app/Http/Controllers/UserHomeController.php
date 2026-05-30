@@ -41,8 +41,26 @@ class UserHomeController extends Controller
             )
             ->get();
 
+        $recentSongs = [];
+        if (auth()->check()) {
+            // Ambil relasi lagu beserta artis dan albumnya
+            $recentHistories = \App\Models\UserSongHistory::with(['song.artist', 'song.album'])
+                ->where('user_id', auth()->id())
+                ->orderBy('updated_at', 'desc') // Urutkan dari yang paling baru diputar
+                ->limit(8)
+                ->get();
+
+            // Ekstrak model 'song'-nya saja agar formatnya sama dengan array songs lainnya
+            $recentSongs = $recentHistories->pluck('song');
+        }
+        $hiddenGems = Song::with(['artist', 'album'])
+            ->orderBy('play_count', 'asc') // Urutkan dari yang terkecil
+            ->limit(5)
+            ->get();
         return Inertia::render('Dashboard', [
-            'songs' => $songs
+            'songs' => $songs,
+            'hiddenGems' => $hiddenGems ,// Kirim data baru ini
+            'recentSongs' => $recentSongs, // <-- DATA UNTUK TAMPILAN
         ]);
     }
 

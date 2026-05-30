@@ -1,3 +1,4 @@
+import { Head } from "@inertiajs/react"; // Tambahkan ini
 import AppLayout from "@/Layouts/AppLayout";
 import usePlayerStore from "@/Stores/playerStore";
 
@@ -18,22 +19,27 @@ const Player = () => {
     }
 
     return (
-        <div className="relative h-full overflow-hidden flex flex-col md:flex-row">
-            <PlayerBackground coverUrl={currentSong.album?.cover_xl} />
+        <>
+            <Head title={currentSong ? `${currentSong.title} - Zaldien Music` : "Zaldien Music"} />
 
-            <PlayerCover
-                currentSong={currentSong}
-                isLyricsMode={isLyricsMode}
-            />
+            <div className="relative h-full overflow-hidden flex flex-col md:flex-row">
+                <PlayerBackground coverUrl={currentSong.album?.cover_xl} />
 
-            <PlayerLyrics
-                currentSong={currentSong}
-                currentTime={currentTime}
-                isLyricsMode={isLyricsMode}
-            />
-        </div>
+                <PlayerCover
+                    currentSong={currentSong}
+                    isLyricsMode={isLyricsMode}
+                />
+
+                <PlayerLyrics
+                    currentSong={currentSong}
+                    currentTime={currentTime}
+                    isLyricsMode={isLyricsMode}
+                />
+            </div>
+        </>
     );
 };
 
+// Menggunakan Persistent Layout
 Player.layout = (page) => <AppLayout>{page}</AppLayout>;
 export default Player;

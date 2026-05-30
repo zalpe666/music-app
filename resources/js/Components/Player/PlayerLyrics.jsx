@@ -81,7 +81,7 @@ export default function PlayerLyrics({ currentSong, currentTime, isLyricsMode })
             <div
                 ref={lyricsContainerRef}
                 onScroll={handleManualScroll}
-                className={`h-[calc(100vh-250px)] overflow-y-auto scrollbar-hide py-[35vh] px-6 w-full transition-all ${isLyricsMode ? "max-w-6xl text-center" : "max-w-4xl"}`}
+                className={`h-[calc(100vh-250px)] overflow-y-auto scrollbar-hide py-[35vh] px-6 w-full transition-all ${isLyricsMode ? "max-w-6xl" : "max-w-4xl"}`}
                 style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
             >
                 {parsedLyrics.map((line, index) => (

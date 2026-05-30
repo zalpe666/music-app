@@ -9,6 +9,9 @@ use App\Http\Controllers\GoogleDriveController;
 use Google\Client;
 use App\Http\Controllers\UserStreamingController;
 use App\Http\Controllers\UserHomeController;
+use App\Http\Controllers\PlaylistController;
+use App\Http\Controllers\UserSearchController;
+
 /*
 |--------------------------------------------------------------------------
 | Public
@@ -39,7 +42,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [UserHomeController::class, 'dashboard'])->name('dashboard');
-    Route::get('/search', [UserHomeController::class, 'search'])->name('search');
+    Route::get('/search', [UserSearchController::class, 'index'])->name('search');
     Route::get('/library', [UserHomeController::class, 'library'])->name('library');
     Route::get('/player', [UserHomeController::class, 'player'])->name('player');
     Route::get('/artist/{artist:slug}', [UserHomeController::class, 'artist']);
@@ -47,9 +50,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/artists', [UserHomeController::class, 'allArtists'])->name('artists');
     Route::get('/lyrics/{lyrics_path}', [UserStreamingController::class, 'lyrics']);
     Route::delete('/stream/{id}', [UserStreamingController::class, 'delete']);
+
+    Route::post('/songs/{id}/play', [UserStreamingController::class, 'recordPlay'])->name('songs.play');
+    
     Route::get('/album/{album:slug}', [UserHomeController::class, 'album']);
     Route::inertia('/PlayerMini', 'PlayerMini')->name('player.mini');
     Route::inertia('/LyricsMini', 'LyricsMini')->name('lyric.mini');
+
+    Route::post('/playlists', [PlaylistController::class, 'store'])->name('playlists.store');
+    Route::get('/playlists/{playlist}', [PlaylistController::class, 'show'])->name('playlists.show');
+    Route::post('/playlists/add-song', [App\Http\Controllers\PlaylistController::class, 'addSong'])->name('playlists.add-song');
 
     Route::get('/profile', [ProfileController::class, 'edit',])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update',])->name('profile.update');

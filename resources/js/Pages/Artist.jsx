@@ -151,7 +151,7 @@ export default function Artist({ artist, songs }) {
             </div>
 
             {/* MAIN CONTENT LAYOUT (FULL WIDTH CONTAINER) */}
-            <div className="pt-10 flex flex-col gap-14 w-full max-w-7xl mx-auto">
+            <div className="px-10 pt-10 flex flex-col gap-14 w-full max-w-7xl mx-auto">
 
                 {/* POPULAR TRACKS */}
                 <div>

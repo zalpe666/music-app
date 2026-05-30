@@ -6,14 +6,16 @@ import usePlayerStore from "@/Stores/playerStore";
 // Komponen Mobile (Sudah ada)
 import MobileBottomNav from "@/Components/MobileBottomNav";
 import MobileMiniPlayer from "@/Components/MobileMiniPlayer";
-
 // Komponen Layout Baru Hasil Refactor
+import TopBar from "./TopBar";
 import SidebarLeft from "./SidebarLeft";
 import SidebarRight from "./SidebarRight";
 import DesktopFooter from "./DesktopFooter";
 
 export default function AppLayout({ children }) {
+    const { auth } = usePage().props;
     const { url } = usePage();
+    const { setUserTopSongIds } = usePlayerStore();
     const scrollContainerRef = useRef(null);
     const audioRef = useRef(null);
 
@@ -33,7 +35,11 @@ export default function AppLayout({ children }) {
         setIsLyricsMode, setCurrentTime, setDuration, nextSong, prevSong,
         togglePlay, songs, currentIndex, playSong, isShuffle, toggleShuffle
     } = usePlayerStore();
-
+    useEffect(() => {
+        if (auth?.top_song_ids) {
+            setUserTopSongIds(auth.top_song_ids);
+        }
+    }, [auth]);
     // 1. Reset scroll saat URL berubah
     useEffect(() => {
         if (scrollContainerRef.current) {
@@ -179,6 +185,7 @@ export default function AppLayout({ children }) {
                     ref={scrollContainerRef}
                     className="flex-1 relative overflow-y-auto scrollbar-hide bg-zinc-950"
                 >
+                    {url !== '/player' && <TopBar />}
                     {children}
                 </main>
 

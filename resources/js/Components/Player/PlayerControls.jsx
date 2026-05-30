@@ -30,7 +30,7 @@ export default function PlayerControls({
                     ) : isPlaying ? (
                         <Pause className="w-8 h-8 md:w-[18px] md:h-[18px] text-black fill-current" />
                     ) : (
-                        <Play className="w-8 h-8 md:w-[18px] md:h-[18px] text-black fill-current ml-1" />
+                        <Play className="w-8 h-8 md:w-[18px] md:h-[18px] text-black fill-current" />
                     )}
                 </button>
 

@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-
+use App\Models\Song;
+use App\Models\UserSongHistory; // 👈 PASTIKAN INI ADA
 class UserStreamingController extends Controller
 {
     public function stream($audio_path)
@@ -105,5 +106,38 @@ class UserStreamingController extends Controller
         if (!is_dir($path)) {
             mkdir($path, 0777, true);
         }
+    }
+
+    public function recordPlay($id)
+    {
+        $song = Song::findOrFail($id);
+
+        // 1. Tambah +1 ke play_count GLOBAL (untuk semua orang)
+        $song->increment('play_count');
+
+        // 2. Jika ada User yang Login, simpan riwayat personalnya
+        if (auth()->check()) {
+            $userId = auth()->id();
+
+            // Cari apakah user ini sudah pernah muter lagu ini
+            $history = UserSongHistory::where('user_id', $userId)
+                ->where('song_id', $id)
+                ->first();
+
+            if ($history) {
+                // Jika sudah ada, tambah play_count +1 dan perbarui updated_at
+                $history->increment('play_count');
+                $history->touch(); // Memaksa updated_at berubah ke waktu sekarang
+            } else {
+                // Jika belum pernah, buat data baru
+                UserSongHistory::create([
+                    'user_id' => $userId,
+                    'song_id' => $id,
+                    'play_count' => 1
+                ]);
+            }
+        }
+
+        return response()->json(['success' => true]);
     }
 }

@@ -28,6 +28,8 @@ const usePlayerStore = create(
             duration: 0,
 
             volume: 1,
+            userTopSongIds: [], // State baru
+            setUserTopSongIds: (ids) => set({ userTopSongIds: ids }), // Setter baru
             // Tambahkan di dalam (set, get) => ({ ... })
             getRecommendations: (limit = 5) => {
                 const { songs, currentSong } = get();
@@ -138,7 +140,8 @@ const usePlayerStore = create(
             |--------------------------------------------------------------------------
             */
 
-            playSong: (song, index = null) => {
+            playSong: async (song, index = null) => {
+                // PERBAIKAN: Tambahkan kata kunci async di sini
                 const { currentSong, songs } = get();
 
                 /*
@@ -161,6 +164,12 @@ const usePlayerStore = create(
 
                     currentTime: 0,
                 });
+                try {
+                    await axios.post(`/songs/${song.id}/play`);
+                    console.log(`📈 Play count ditambah untuk: ${song.title}`);
+                } catch (error) {
+                    console.error("Gagal menambah play count:", error);
+                }
             },
 
             /*
@@ -188,6 +197,7 @@ const usePlayerStore = create(
                     isShuffle, // Ini sekarang jadi tombol "AI Mode"
                     isArtistMode,
                     isAlbumMode,
+                    userTopSongIds,
                 } = get();
 
                 if (!songs.length) return;
@@ -234,6 +244,10 @@ const usePlayerStore = create(
                     if (s.album_id === currentSong.album_id) {
                         score += 30;
                         matchedCriteria.push("Sama Album");
+                    }
+                    if (userTopSongIds.includes(s.id)) {
+                        score += 25; // Bonus besar karena ini lagu kesukaan dia!
+                        matchedCriteria.push("Favorit User");
                     }
 
                     // B. Analisis Vibe & Genetik (Data Baru dari AudioDB!)
@@ -284,6 +298,28 @@ const usePlayerStore = create(
                     if (s.rank) {
                         const rankBonus = Math.min((s.rank / 100000) * 5, 15);
                         score += rankBonus;
+                    }
+                    if (s.duration && currentSong.duration) {
+                        const diffSeconds = Math.abs(
+                            s.duration - currentSong.duration,
+                        );
+                        if (diffSeconds < 60) {
+                            score += 5;
+                            matchedCriteria.push("Durasi Mirip");
+                        }
+                    }
+
+                    // 🔥 TAMBAHAN LOGIKA PLAY COUNT 🔥
+                    if (s.play_count) {
+                        // Memberikan bonus poin berdasarkan popularitas lagu
+                        // Asumsi: lagu dengan play_count tinggi dapat bonus max 15 poin
+                        const popularityBonus = Math.min(
+                            (s.play_count / 100) * 5,
+                            15,
+                        );
+                        score += popularityBonus;
+                        if (popularityBonus > 5)
+                            matchedCriteria.push("Lagu Populer (Hits)");
                     }
 
                     return { song: s, score, matchedCriteria };
