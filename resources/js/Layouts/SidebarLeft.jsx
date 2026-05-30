@@ -28,10 +28,10 @@ function NavItem({ icon, label, active = false, customIconColor = "" }) {
 export default function SidebarLeft({ isSidebarOpen, setIsSidebarOpen, url }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [playlistName, setPlaylistName] = useState('');
-    
+
     // Ambil data playlists dari props global Inertia
     const { playlists } = usePage().props;
-    
+
     const handleCreatePlaylist = () => {
         if (!playlistName.trim()) return;
 
@@ -56,9 +56,12 @@ export default function SidebarLeft({ isSidebarOpen, setIsSidebarOpen, url }) {
                 {/* Tombol Toggle */}
                 <div className="px-6 mb-8 flex items-center justify-between">
                     {isSidebarOpen && (
-                        <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent">
-                            Zaldien Music
-                        </h1>
+
+                        <Link href={route("dashboard")}>
+                            <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent hover:underline">
+                                Zaldien Music
+                            </h1>
+                        </Link>
                     )}
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -67,27 +70,11 @@ export default function SidebarLeft({ isSidebarOpen, setIsSidebarOpen, url }) {
                         {isSidebarOpen ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
                     </button>
                 </div>
-
-                {/* Main Navigation */}
-                <div className="px-3">
-                    <nav className="space-y-1">
-                        <Link href={route("dashboard")}>
-                            <NavItem icon={<Home size={22} />} label={isSidebarOpen ? "Home" : ""} active={url.startsWith("/dashboard")} />
-                        </Link>
-                        <Link href={route("search")}>
-                            <NavItem icon={<Search size={22} />} label={isSidebarOpen ? "Search" : ""} active={url.startsWith("/search")} />
-                        </Link>
-                        <Link href={route("library")}>
-                            <NavItem icon={<Library size={22} />} label={isSidebarOpen ? "Your Library" : ""} active={url.startsWith("/library")} />
-                        </Link>
-                        <Link href={route("artists")}>
-                            <NavItem icon={<UserSearch size={22} />} label={isSidebarOpen ? "All Artists" : ""} active={url.startsWith("/artists")} />
-                        </Link>
-                    </nav>
-                </div>
-
                 {/* Create Playlist & Liked Songs - Dikeluarkan dari isSidebarOpen */}
-                <div className="px-3 mt-8">
+                <div className="px-3 mt-3">
+                    {isSidebarOpen && (
+                        <p className="px-3 text-[11px] font-bold text-zinc-500 tracking-widest uppercase mb-4">Your Library</p>
+                    )}
                     <nav className="space-y-1">
                         <button
                             onClick={() => setIsModalOpen(true)}
@@ -103,14 +90,14 @@ export default function SidebarLeft({ isSidebarOpen, setIsSidebarOpen, url }) {
                 </div>
 
                 <div className="px-6 mt-4 mb-4"><div className="h-px bg-white/10 w-full" /></div>
-                
+
                 {/* User Playlists List - Dikeluarkan dari isSidebarOpen */}
                 <div className="px-3 flex-1 overflow-y-auto scrollbar-hide">
                     {/* Teks 'PLAYLISTS' hanya muncul saat sidebar open */}
                     {isSidebarOpen && (
                         <p className="px-3 text-[11px] font-bold text-zinc-500 tracking-widest uppercase mb-4">Playlists</p>
                     )}
-                    
+
                     <div className="space-y-1 pb-4">
                         {playlists && playlists.length > 0 ? (
                             playlists.map((playlist) => (

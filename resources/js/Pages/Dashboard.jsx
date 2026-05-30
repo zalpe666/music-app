@@ -2,9 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import usePlayerStore from "@/Stores/playerStore";
 import { Link } from "@inertiajs/react";
-import { Play, Mic2, ListMusic, Disc, Sparkles, Clock, History, Compass } from "lucide-react"; // Tambahkan icon History
-
-const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] }) => {
+import { Play, Mic2, ListMusic, Disc, Sparkles, Clock, History, Compass, MoreVertical, X, Check } from "lucide-react";
+import HorizontalSongCard from "@/Components/HorizontalSongCard";
+import SongOptionsModal from "@/Components/SongOptionsModal";
+import VerticalSongCard from "@/Components/VerticalSongCard"; // 👈 TAMBAHKAN INI
+const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [], playlists = [] }) => {
     const {
         playSong,
         setPlaylist,
@@ -14,7 +16,8 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
     } = usePlayerStore();
 
     const recommendations = getRecommendations(5);
-
+    const [modal, setModal] = useState({ isOpen: false, song: null });
+    const [selectedPlaylists, setSelectedPlaylists] = useState([]);
     // Sapaan Dinamis berdasarkan waktu
     const [greeting, setGreeting] = useState("Selamat Datang");
     useEffect(() => {
@@ -31,16 +34,48 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
             .slice(0, 8);
     }, [songs]);
 
-    useEffect(() => {
-        if (songs.length > 0) {
-            setPlaylist(songs);
-            setAllSongs(songs);
-        }
-    }, [songs]);
 
     const uniqueArtists = Array.from(new Map(songs.map(song => [song.artist?.id, song.artist])).values()).filter(Boolean).slice(0, 6);
     const uniqueAlbums = Array.from(new Map(songs.map(song => [song.album?.id, song.album])).values()).filter(Boolean).slice(0, 6);
 
+    // Fungsi untuk menangani klik tombol titik tiga (Action Menu)
+    const handleOpenMenu = (song, event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const isTooLow = rect.bottom + 300 > window.innerHeight;
+        console.log("Buka menu opsi untuk lagu:", song?.title);
+        setModal({ isOpen: true, song: song }); // 👈 INI YANG BIKIN MODAL KEBUKA
+        setSelectedPlaylists([]);
+        setModal({
+            isOpen: true,
+            song: song,
+            position: {
+                x: rect.left, // Geser 180px ke kiri agar rata dengan tombol
+                y: isTooLow ? rect.top - 240 : rect.bottom + 10 // Muncul di atas atau di bawah
+            }
+        });
+    };
+    const handleSave = async () => {
+        if (!modal.song || selectedPlaylists.length === 0) {
+            setModal({ isOpen: false, song: null });
+            return;
+        }
+
+        try {
+            // Tembak API ke Laravel untuk menyimpan relasi lagu & playlist
+            await axios.post('/playlists/add-song', {
+                song_id: modal.song.id,
+                playlist_ids: selectedPlaylists
+            });
+
+            // Tutup modal
+            setModal({ isOpen: false, song: null });
+            console.log("Berhasil ditambahkan ke playlist!");
+            // (Opsional) Tambahkan SweetAlert atau Toast Notifikasi di sini
+
+        } catch (error) {
+            console.error("Gagal menambahkan ke playlist:", error);
+        }
+    };
     return (
         <div className="p-4 md:p-8 space-y-12 pb-32">
 
@@ -51,30 +86,24 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                 </h1>
             </div>
 
-            {/* 1. RECENTLY PLAYED (Pindah ke Paling Atas untuk UX Terbaik) */}
+            {/* 1. RECENTLY PLAYED */}
             {recentSongs && recentSongs.length > 0 && (
                 <section>
                     <div className="flex items-center gap-2 mb-6">
                         <History size={24} className="text-green-500" />
-                        <h2 className="text-2xl font-bold text-white">Baru Saja Diputar</h2>
+                        <h2 className="text-2xl font-bold text-white">Played Recently</h2>
                     </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                        {recentSongs.map((song) => (
-                            <div
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {recentSongs.map((song, index) => (
+                            <HorizontalSongCard
                                 key={song.id}
-                                onClick={() => playSong(song)}
-                                className="group flex items-center bg-zinc-800/40 hover:bg-zinc-700/60 transition-all duration-300 rounded-md overflow-hidden cursor-pointer"
-                            >
-                                <div className="relative w-14 h-14 md:w-20 md:h-20 shrink-0 bg-zinc-800 shadow-md">
-                                    <img src={song.album?.cover_xl || song.cover_small} className="w-full h-full object-cover" alt={song.title} />
-                                </div>
-                                <div className="flex-1 min-w-0 px-4 py-2">
-                                    <p className="text-white font-bold text-sm md:text-base truncate group-hover:text-green-400">
-                                        {song.title}
-                                    </p>
-                                    <p className="text-xs text-zinc-400 truncate">{song.artist?.name}</p>
-                                </div>
-                            </div>
+                                song={song}
+                                onPlay={() => {
+                                    setPlaylist(recentSongs); // Antrean pakai history
+                                    playSong(song, index);
+                                }}
+                                onOpenMenu={handleOpenMenu}
+                            />
                         ))}
                     </div>
                 </section>
@@ -86,29 +115,22 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                     <ListMusic size={24} className="text-zinc-500" />
                     <h2 className="text-2xl font-bold text-white">Quick Access</h2>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                     {randomSongs.map((song, index) => (
-                        <div
+                        <HorizontalSongCard
                             key={song.id}
-                            onClick={() => playSong(song, index)}
-                            className="group flex items-center bg-zinc-800/30 hover:bg-zinc-700/50 transition-all duration-300 rounded-md overflow-hidden cursor-pointer border border-transparent hover:border-white/10 shadow-sm hover:shadow-md"
-                        >
-                            <div className="relative w-14 h-14 md:w-20 md:h-20 shrink-0 bg-zinc-800 shadow-md">
-                                <img src={song.album?.cover_xl || song.cover_small} className="w-full h-full object-cover" alt={song.title} />
-                            </div>
-                            <div className="flex-1 min-w-0 px-4 py-2 flex justify-between items-center">
-                                <p className="text-white font-bold text-sm md:text-base truncate group-hover:text-green-400 transition-colors">
-                                    {song.title}
-                                </p>
-                                <button className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl hover:scale-105 hover:bg-green-400 shrink-0">
-                                    <Play size={18} className="text-black fill-black ml-1" />
-                                </button>
-                            </div>
-                        </div>
+                            song={song}
+                            onPlay={() => {
+                                setPlaylist(randomSongs); // Antrean pakai quick access
+                                playSong(song, index);
+                            }}
+                            onOpenMenu={handleOpenMenu}
+                        />
                     ))}
                 </div>
             </section>
 
+            {/* 3. HERO / REKOMENDASI UTAMA BERDASARKAN LAGU SAAT INI */}
             {/* 3. HERO / REKOMENDASI UTAMA BERDASARKAN LAGU SAAT INI */}
             {currentSong && recommendations.length > 0 && (
                 <section>
@@ -117,21 +139,17 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                         <h2 className="text-2xl font-bold text-white">Based On {currentSong.title}</h2>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                        {recommendations.map((song) => (
-                            <div
+                        {recommendations.map((song, index) => (
+                            <VerticalSongCard
                                 key={song.id}
-                                onClick={() => playSong(song)}
-                                className="bg-zinc-900/40 p-4 rounded-xl hover:bg-zinc-800 transition-all duration-300 cursor-pointer group hover:-translate-y-1 border border-transparent hover:border-white/10"
-                            >
-                                <div className="relative aspect-square mb-4 rounded-lg overflow-hidden shadow-lg">
-                                    <img src={song.album?.cover_xl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Play size={32} className="text-white fill-white shadow-2xl" />
-                                    </div>
-                                </div>
-                                <h3 className="font-bold text-white truncate text-base">{song.title}</h3>
-                                <p className="text-sm text-zinc-400 truncate mt-1">{song.artist?.name}</p>
-                            </div>
+                                song={song}
+                                onPlay={() => {
+                                    setPlaylist(recommendations);
+                                    setAllSongs(recommendations); // 👈 Memastikan queue AI aman
+                                    playSong(song, index);
+                                }}
+                                onOpenMenu={handleOpenMenu}
+                            />
                         ))}
                     </div>
                 </section>
@@ -145,25 +163,24 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                         <h2 className="text-2xl font-bold text-white">Discovery: Hidden Gems</h2>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                        {hiddenGems.map((song) => (
-                            <div
+                        {hiddenGems.map((song, index) => (
+                            <VerticalSongCard
                                 key={song.id}
-                                onClick={() => playSong(song)}
-                                className="bg-zinc-900/40 p-4 rounded-xl hover:bg-zinc-800 transition-all duration-300 cursor-pointer group border border-transparent hover:border-green-500/30"
-                            >
-                                <div className="relative aspect-square mb-4 rounded-lg overflow-hidden shadow-lg">
-                                    <img src={song.album?.cover_xl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                </div>
-                                <h3 className="font-bold text-white truncate text-base">{song.title}</h3>
-                                <p className="text-sm text-zinc-400 truncate mt-1">{song.artist?.name}</p>
-                                <div className="mt-2 text-[10px] text-zinc-600 font-mono">
-                                    DIPUTAR {song.play_count} KALI
-                                </div>
-                            </div>
+                                song={song}
+                                onPlay={() => {
+                                    setPlaylist(hiddenGems);
+                                    setAllSongs(hiddenGems); // 👈 Memastikan queue AI aman
+                                    playSong(song, index);
+                                }}
+                                onOpenMenu={handleOpenMenu}
+                                extraInfo={`DIPUTAR ${song.play_count} KALI`} // 👈 Melempar text tambahan ke komponen
+                            />
                         ))}
                     </div>
                 </section>
             )}
+
+            {/* 5. EXPLORE GENRES */}
             {genres && genres.length > 0 && (
                 <section>
                     <div className="flex items-center gap-2 mb-6">
@@ -172,7 +189,6 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
                         {genres.map((genre, i) => {
-                            // Array warna estetis bergaya Spotify
                             const colors = [
                                 "bg-pink-600", "bg-purple-600", "bg-blue-600",
                                 "bg-emerald-600", "bg-orange-600", "bg-red-600",
@@ -183,14 +199,12 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                             return (
                                 <Link
                                     key={genre}
-                                    href={`/genre/${genre}`} // Lempar ke halaman Search
+                                    href={`/genre/${genre}`}
                                     className={`${colorClass} rounded-xl p-4 h-32 relative overflow-hidden group cursor-pointer hover:scale-[1.02] transition-transform duration-300 shadow-md block`}
                                 >
                                     <h3 className="text-xl font-bold text-white relative z-10 capitalize">
                                         {genre}
                                     </h3>
-
-                                    {/* Aksen grafis abstrak di pojok kanan bawah */}
                                     <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-black/20 rounded-full rotate-12 group-hover:scale-110 transition-transform duration-300 shadow-lg backdrop-blur-sm"></div>
                                     <div className="absolute top-1/2 -right-6 w-12 h-12 bg-white/10 rounded-md rotate-45 group-hover:rotate-90 transition-transform duration-500"></div>
                                 </Link>
@@ -199,7 +213,8 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                     </div>
                 </section>
             )}
-            {/* 5. FEATURED ARTISTS */}
+
+            {/* 6. FEATURED ARTISTS */}
             {uniqueArtists.length > 0 && (
                 <section>
                     <h2 className="text-2xl font-bold text-white mb-6">Featured Artists</h2>
@@ -218,7 +233,7 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                 </section>
             )}
 
-            {/* 6. FEATURED ALBUMS */}
+            {/* 7. FEATURED ALBUMS */}
             {uniqueAlbums.length > 0 && (
                 <section>
                     <h2 className="text-2xl font-bold text-white mb-6">Featured Albums</h2>
@@ -235,6 +250,13 @@ const Dashboard = ({ songs = [], hiddenGems = [], recentSongs = [], genres = [] 
                     </div>
                 </section>
             )}
+            <SongOptionsModal
+                isOpen={modal.isOpen}
+                onClose={() => setModal({ isOpen: false, song: null, position: { x: 0, y: 0 } })}
+                song={modal.song}
+                playlists={playlists}
+                position={modal.position} // 👈 TAMBAHKAN INI
+            />
         </div>
     );
 };
