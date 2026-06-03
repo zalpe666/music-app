@@ -13,6 +13,7 @@ use App\Models\Artist;
 use App\Models\Album;
 use App\Services\ArtistDataService;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 class SongController extends Controller
 {
     public function indexArtists()
