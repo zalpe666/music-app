@@ -11,13 +11,19 @@
 
         <!-- Header -->
         <div class="row align-items-center mb-4">
-            <div class="col-md-8">
+            <div class="col-md-6">
                 <h2 class="fw-bold mb-1">Songs Library</h2>
                 <p class="text-muted mb-0">Manage and organize your music collection.</p>
             </div>
-            <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                <a href="{{ route('songs.create') }}" class="btn btn-primary shadow-sm rounded-pill px-4">
-                    <i class="bi bi-plus-lg me-1"></i> Add New Song
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <!-- Tombol Baru untuk Fetch API Spotify -->
+                <a href="{{ route('songs.fetch') }}" class="btn btn-dark shadow-sm rounded-pill px-3 me-2">
+                    <i class="bi bi-spotify text-success me-1"></i> Fetch from Spotify
+                </a>
+
+                <!-- Tombol Lama (Untuk tambah manual jika Spotify tidak ada) -->
+                <a href="{{ route('songs.create') }}" class="btn btn-primary shadow-sm rounded-pill px-3">
+                    <i class="bi bi-plus-lg me-1"></i> Add Manual
                 </a>
             </div>
         </div>
@@ -73,7 +79,8 @@
 
                                 <!-- Artist & Album -->
                                 <td>
-                                    <div class="fw-semibold text-dark">{{ $song->artist->name }}</div>
+                                    <div class="fw-semibold text-dark">
+                                        {{ $song->artist?->name ?? 'Artist Tidak Diketahui' }}</div>
                                     <div class="text-muted small">
                                         <i class="bi bi-disc me-1"></i> {{ $song->album->title ?? 'Unknown Album' }}
                                     </div>
@@ -88,8 +95,18 @@
 
                                 <!-- Provider -->
                                 <td>
-                                    <span class="badge bg-dark rounded-pill px-3 py-2 fw-medium">
-                                        {{ ucfirst($song->provider) }}
+                                    @php
+                                        $badgeColor = match (strtolower($song->provider)) {
+                                            'spotify' => 'bg-success', // Hijau khas Spotify
+                                            'google' => 'bg-primary', // Biru khas Google
+                                            default => 'bg-secondary', // Warna default jika provider lain/kosong
+                                        };
+                                    @endphp
+
+                                    <span class="badge {{ $badgeColor }} rounded-pill px-3 py-2 fw-medium">
+                                        <i
+                                            class="bi bi-{{ strtolower($song->provider) == 'spotify' ? 'spotify' : 'google' }} me-1"></i>
+                                        {{ ucfirst($song->provider ?? 'Manual') }}
                                     </span>
                                 </td>
 
@@ -97,7 +114,6 @@
                                 <td>
                                     <div class="d-flex justify-content-center gap-2">
 
-                                        <!-- Preview Button -->
                                         @if ($song->preview_url)
                                             <button class="btn btn-sm btn-light text-primary border shadow-sm"
                                                 data-bs-toggle="modal" data-bs-target="#previewModal{{ $song->id }}"
@@ -106,7 +122,6 @@
                                             </button>
                                         @endif
 
-                                        <!-- Stream Button -->
                                         @if ($song->audio_path)
                                             <a href="/stream/{{ $song->id }}" target="_blank"
                                                 class="btn btn-sm btn-light text-success border shadow-sm"
@@ -115,13 +130,23 @@
                                             </a>
                                         @endif
 
-                                        <!-- Edit Button -->
+                                        {{-- <a href="{{ route('songs.fetch', [
+                                            'title' => $song->title,
+                                            'artist' => $song->artists->first()?->name ?? '',
+                                        ]) }}"
+                                            class="btn btn-sm btn-light text-success border shadow-sm"
+                                            title="Fetch dari Spotify">
+                                            <i class="bi bi-spotify"></i>
+                                        </a> --}}
+                                        <a href="{{ route('songs.fetch', ['title' => $song->title, 'sync_id' => $song->id]) }}"
+                                            class="btn btn-sm btn-warning shadow-sm rounded-pill">
+                                            <i class="bi bi-arrow-repeat"></i> Sync Metadata
+                                        </a>
                                         <a href="{{ route('songs.edit', $song->id) }}"
                                             class="btn btn-sm btn-light text-warning border shadow-sm" title="Edit Song">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
 
-                                        <!-- Delete Button -->
                                         <form action="{{ route('songs.destroy', $song->id) }}" method="POST"
                                             onsubmit="return confirm('Are you sure you want to delete this song?')">
                                             @csrf
@@ -134,38 +159,7 @@
 
                                     </div>
 
-                                    <!-- Modal Preview (Dipindahkan ke dalam TD agar valid secara struktur HTML) -->
                                     @if ($song->preview_url)
-                                        <div class="modal fade" id="previewModal{{ $song->id }}" tabindex="-1"
-                                            aria-hidden="true">
-                                            <div class="modal-dialog modal-dialog-centered modal-sm">
-                                                <div class="modal-content border-0 shadow">
-                                                    <div class="modal-header border-bottom-0 pb-0">
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                            aria-label="Close"></button>
-                                                    </div>
-                                                    <div class="modal-body text-center pt-0">
-                                                        @if ($song->cover_big || $song->cover_medium)
-                                                            <img src="{{ $song->cover_big ?? $song->cover_medium }}"
-                                                                class="img-fluid rounded-4 shadow-sm mb-4 w-75">
-                                                        @else
-                                                            <div class="bg-light rounded-4 mb-4 d-flex align-items-center justify-content-center mx-auto"
-                                                                style="width: 150px; height: 150px;">
-                                                                <i class="bi bi-music-note-beamed fs-1 text-secondary"></i>
-                                                            </div>
-                                                        @endif
-
-                                                        <h6 class="fw-bold mb-1">{{ $song->title }}</h6>
-                                                        <p class="text-muted small mb-3">{{ $song->artist }}</p>
-
-                                                        <audio controls class="w-100" controlsList="nodownload">
-                                                            <source src="{{ $song->preview_url }}" type="audio/mpeg">
-                                                            Your browser does not support the audio element.
-                                                        </audio>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     @endif
 
                                 </td>

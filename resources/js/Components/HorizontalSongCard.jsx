@@ -1,6 +1,6 @@
 import React from 'react';
 import { Play, MoreVertical } from "lucide-react";
-import { Link } from "@inertiajs/react"; // 👈 1. TAMBAHKAN IMPORT INI
+import { Link } from "@inertiajs/react";
 
 export default function HorizontalSongCard({ song, onPlay, onOpenMenu }) {
     return (
@@ -27,16 +27,23 @@ export default function HorizontalSongCard({ song, onPlay, onOpenMenu }) {
                     {song.title}
                 </p>
 
-                {/* 👈 2. UBAH BAGIAN ARTIS MENJADI LINK */}
+                {/* 👈 DIPERBAIKI: Looping untuk banyak artis (Feat) */}
                 <div className="text-xs text-zinc-400 truncate mt-0.5">
-                    {song.artist ? (
-                        <Link
-                            href={`/artist/${song.artist.slug}`}
-                            onClick={(e) => e.stopPropagation()} // PENTING: Mencegah lagu terputar saat klik nama artis
-                            className="hover:underline hover:text-white transition-colors"
-                        >
-                            {song.artist.name}
-                        </Link>
+                    {song.artists && song.artists.length > 0 ? (
+                        song.artists.map((artist, index) => (
+                            <span key={artist.id}>
+                                <Link
+                                    // Fallback ke id jika slug belum di-generate oleh backend
+                                    href={`/artist/${artist.slug || artist.id}`} 
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="hover:underline hover:text-white transition-colors"
+                                >
+                                    {artist.name}
+                                </Link>
+                                {/* Tambahkan koma jika bukan artis terakhir di list */}
+                                {index < song.artists.length - 1 && ", "}
+                            </span>
+                        ))
                     ) : (
                         <span>Unknown Artist</span>
                     )}

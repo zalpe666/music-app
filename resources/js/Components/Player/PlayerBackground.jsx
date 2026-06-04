@@ -7,7 +7,7 @@ export default function PlayerBackground({ coverUrl }) {
             style={{
                 backgroundImage: `url(${coverUrl})`,
                 backgroundSize: "cover",
-                backgroundPosition: "center"
+                backgroundPosition: "center",
             }}
         />
     );

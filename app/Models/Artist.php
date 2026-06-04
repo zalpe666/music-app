@@ -9,6 +9,7 @@ class Artist extends Model
 {
     protected $fillable = [
         'deezer_id',
+        'spotify_id',
         'name',
         'slug',
         'picture_xl',
@@ -66,6 +67,6 @@ class Artist extends Model
 
     public function songs()
     {
-        return $this->hasMany(Song::class);
+        return $this->belongsToMany(Song::class, 'artist_song', 'artist_id', 'song_id');
     }
 }

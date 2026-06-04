@@ -23,17 +23,17 @@ class UserHomeController extends Controller
             'artists' => $artists
         ]);
     }
+
     public function dashboard()
     {
         $songs = Song::with([
-            'artist',
-            'album'
+            'artists', // 👈 Diubah jadi plural
+            'album'    // 👈 DIPERBAIKI: kembali jadi singular (album, bukan albums)
         ])
             ->latest()
             ->select(
                 'id',
                 'title',
-                'artist_id',
                 'album_id',
                 'duration',
                 'audio_path',
@@ -42,33 +42,36 @@ class UserHomeController extends Controller
             ->get();
 
         $recentSongs = [];
-        
+
         if (auth()->check()) {
-            // Ambil relasi lagu beserta artis dan albumnya
-            $recentHistories = \App\Models\UserSongHistory::with(['song.artist', 'song.album'])
+            // 👈 DIPERBAIKI: 'song.artist' menjadi 'song.artists'
+            $recentHistories = \App\Models\UserSongHistory::with(['song.artists', 'song.album'])
                 ->where('user_id', auth()->id())
-                ->orderBy('updated_at', 'desc') // Urutkan dari yang paling baru diputar
+                ->orderBy('updated_at', 'desc')
                 ->limit(8)
                 ->get();
 
-            // Ekstrak model 'song'-nya saja agar formatnya sama dengan array songs lainnya
             $recentSongs = $recentHistories->pluck('song');
         }
-        $hiddenGems = Song::with(['artist', 'album'])
-            ->orderBy('play_count', 'asc') // Urutkan dari yang terkecil
+
+        // 👈 DIPERBAIKI: 'artist' menjadi 'artists'
+        $hiddenGems = Song::with(['artists', 'album'])
+            ->orderBy('play_count', 'asc')
             ->limit(5)
             ->get();
-            $genres = Artist::whereNotNull('strGenre')
-        ->where('strGenre', '!=', '')
-        ->select('strGenre')
-        ->distinct()
-        ->limit(8) // Ambil 8 genre saja agar rapi (grid 4x2)
-        ->pluck('strGenre');
+
+        $genres = Artist::whereNotNull('strGenre')
+            ->where('strGenre', '!=', '')
+            ->select('strGenre')
+            ->distinct()
+            ->limit(8)
+            ->pluck('strGenre');
+
         return Inertia::render('Dashboard', [
             'songs' => $songs,
-            'hiddenGems' => $hiddenGems ,// Kirim data baru ini
-            'recentSongs' => $recentSongs, // <-- DATA UNTUK TAMPILAN
-            'genres' => $genres, // <-- KIRIM DATA GENRE INI
+            'hiddenGems' => $hiddenGems,
+            'recentSongs' => $recentSongs,
+            'genres' => $genres,
         ]);
     }
 
@@ -81,14 +84,13 @@ class UserHomeController extends Controller
     public function search()
     {
         $songs = Song::with([
-            'artist',
+            'artists', // 👈 DIPERBAIKI: 'artist' menjadi 'artists'
             'album'
         ])
             ->latest()
             ->select(
                 'id',
                 'title',
-                'artist_id',
                 'album_id',
                 'duration',
                 'audio_path',
@@ -122,20 +124,22 @@ class UserHomeController extends Controller
     {
         return Inertia::render('Player');
     }
+
     public function artist(Artist $artist)
     {
-        // Memuat relasi data yang dibutuhkan
-        $artist->load(['songs.artist', 'songs.album']);
-        // dd($artist->songs->pluck('explicit_lyrics', 'title')->toArray());
+        // 👈 DIPERBAIKI: 'songs.artist' menjadi 'songs.artists'
+        $artist->load(['songs.artists', 'songs.album']);
+
         return Inertia::render('Artist', [
             'artist' => $artist,
             'songs'  => $artist->songs
         ]);
     }
+
     public function album(Album $album)
     {
-        // Load artist dan songs untuk album ini
-        $album->load(['artist', 'songs.artist', 'songs.album']);
+        // 👈 DIPERBAIKI: 'songs.artist' menjadi 'songs.artists'
+        $album->load(['artist', 'songs.artists', 'songs.album']);
 
         return Inertia::render('Album', [
             'album' => $album,

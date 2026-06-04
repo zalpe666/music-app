@@ -12,9 +12,14 @@ return new class extends Migration
 
             $table->id();
 
-            $table->bigInteger('deezer_id')
+            $table->unsignedBigInteger('deezer_id')
+                ->nullable()
                 ->unique();
 
+            $table->string('spotify_id')
+                ->nullable()
+                ->unique();
+                
             $table->string('name');
 
             $table->text('picture_small')

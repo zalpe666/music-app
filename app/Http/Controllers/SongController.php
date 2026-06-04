@@ -14,6 +14,8 @@ use App\Models\Album;
 use App\Services\ArtistDataService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use App\Services\SpotifyMetadataService;
+
 class SongController extends Controller
 {
     public function indexArtists()
@@ -31,13 +33,11 @@ class SongController extends Controller
         // Panggil service untuk update data
         dd($artist->name);
         $service->updateArtistData($artist);
-
-        // Kembali ke halaman sebelumnya dengan pesan sukses
         return back()->with('success', 'Data ' . $artist->name . ' berhasil disinkronisasi!');
     }
     public function index()
     {
-        $songs = Song::latest()->paginate(20);
+        $songs = Song::with(['album'])->latest()->paginate(20);
 
         return view('admin.songs.index', compact('songs'));
     }
@@ -50,177 +50,145 @@ class SongController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'song_title'   => 'required',
-            'artist_name'  => 'required',
-            'audio_file' => 'required|file',
-            'lyrics'       => 'nullable|string',
-
+            'song_title'  => 'required',
+            // 'artist_name' dihapus dari validasi single, kita pakai artists_raw
+            'audio_file'  => 'required|file',
+            'lyrics'      => 'nullable|string',
         ]);
 
         try {
             $googleDrive = new GoogleDriveStorageService();
-
-            // Root folder Google Drive
             $rootFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
-            // Folder berdasarkan Deezer ID
-            $songFolderName = $request->deezer_track_id;
+            // Folder berdasarkan Deezer ID / Spotify ID (bebas pakai yang mana)
+            $songFolderName = $request->deezer_track_id ?? $request->spotify_id ?? time();
 
-            // Cari folder
-            $songFolder = $googleDrive->findFolder(
-                $songFolderName,
-                $rootFolderId
-            );
-
-            // Buat folder jika belum ada
+            $songFolder = $googleDrive->findFolder($songFolderName, $rootFolderId);
             if (!$songFolder) {
-                $songFolder = $googleDrive->createFolder(
-                    $songFolderName,
-                    $rootFolderId
-                );
+                $songFolder = $googleDrive->createFolder($songFolderName, $rootFolderId);
             }
 
             // Upload audio
-            $audioUpload = $googleDrive->upload(
-                $request->file('audio_file'),
-                $songFolder['id']
-            );
-
+            $audioUpload = $googleDrive->upload($request->file('audio_file'), $songFolder['id']);
             $audioPath = $audioUpload['id'];
 
-            // Upload lyrics jika ada
+            // Upload lyrics
             $lyricsPath = null;
-
             if ($request->filled('lyrics')) {
-
-                // Nama file
                 $fileName = time() . '.lrc';
-
-                // Path sementara
                 $tempDir = storage_path('app/temp');
 
-                // Buat folder jika belum ada
-                if (!file_exists($tempDir)) {
-                    mkdir($tempDir, 0777, true);
-                }
+                if (!file_exists($tempDir)) mkdir($tempDir, 0777, true);
 
                 $tempPath = $tempDir . '/' . $fileName;
-
-                // Simpan isi lirik
                 file_put_contents($tempPath, $request->lyrics);
 
-                // Convert jadi UploadedFile
-                $lyricsFile = new UploadedFile(
-                    $tempPath,
-                    $fileName,
-                    'text/plain',
-                    null,
-                    true
-                );
-
-                // Upload ke Google Drive
-                $lyricsUpload = $googleDrive->upload(
-                    $lyricsFile,
-                    $songFolder['id']
-                );
-
+                $lyricsFile = new UploadedFile($tempPath, $fileName, 'text/plain', null, true);
+                $lyricsUpload = $googleDrive->upload($lyricsFile, $songFolder['id']);
                 $lyricsPath = $lyricsUpload['id'];
 
-                // Hapus file sementara
                 unlink($tempPath);
             }
-            // Artist
-            $artist = Artist::updateOrCreate(
-                [
-                    'deezer_id' => $request->artist_deezer_id
-                ],
-                [
+
+            // --- 1. PROSES BANYAK ARTIS ---
+            $artistIds = [];
+            $mainArtistId = null; // Menyimpan ID artis pertama untuk relasi Album
+
+            // Decode JSON artists_raw dari form
+            $artistsData = json_decode($request->artists_raw, true) ?? [];
+
+            // Fallback jika tidak ada data dari Spotify (misal input manual)
+            if (empty($artistsData) && $request->filled('artist_name')) {
+                $artistsData[] = [
+                    'id' => $request->artist_deezer_id ?? Str::random(10), // Fallback ID
                     'name' => $request->artist_name,
-                    'picture_xl' => $request->artist_picture_xl,
-                ]
-            );
-            $url = "https://www.theaudiodb.com/api/v1/json/2/search.php?s=" . urlencode($artist->name);
-
-            $response = Http::get($url);
-
-            // Cek jika request gagal atau artis tidak ditemukan
-            if ($response->failed() || !isset($response->json()['artists'])) {
-                Log::error("Gagal update data untuk artis: " . $artist->name);
-            } else {
-                $data = $response->json()['artists'][0];
-
-                // 2. Update model artis dengan data yang kamu mau
-                $artist->update([
-                    'strBiography'       => $data['strBiographyEN'] ?? $data['strBiography'] ?? null,
-                    'strArtistFanart'    => $data['strArtistFanart'] ?? null,
-                    'strArtistFanart2'   => $data['strArtistFanart2'] ?? null,
-                    'strArtistFanart3'   => $data['strArtistFanart3'] ?? null,
-                    'strArtistBanner'    => $data['strArtistBanner'] ?? null,
-                    'strArtistClearart'  => $data['strArtistClearart'] ?? null,
-                    'strArtistLogo'      => $data['strArtistLogo'] ?? null,
-                    'strArtistWideThumb' => $data['strArtistWideThumb'] ?? null,
-                    'intFormedYear'      => $data['intFormedYear'] ?? null,
-                    'strGender'          => $data['strGender'] ?? null,
-                    'strCountry'         => $data['strCountry'] ?? null,
-                    'intMembers'         => $data['intMembers'] ?? null,
-                    'strWebsite'         => $data['strWebsite'] ?? null,
-                    'strFacebook'        => $data['strFacebook'] ?? null,
-                    'strTwitter'         => $data['strTwitter'] ?? null,
-                    'strMood'            => $data['strMood'] ?? null,
-                    'strStyle'           => $data['strStyle'] ?? null,
-                    'strGenre'           => $data['strGenre'] ?? null,
-                    'intCharted'         => $data['intCharted'] ?? 0,
-                ]);
+                ];
             }
-            // Album
+
+            foreach ($artistsData as $index => $artistItem) {
+                // Update atau Create masing-masing artis
+                $artist = Artist::updateOrCreate(
+                    ['spotify_id' => data_get($artistItem, 'id')], // Atau deezer_id tergantung prioritasmu
+                    ['name' => data_get($artistItem, 'name')]
+                );
+
+                // Simpan ID untuk pivot table
+                $artistIds[] = $artist->id;
+
+                // Simpan artis pertama sebagai artis utama untuk Album
+                if ($index === 0) {
+                    $mainArtistId = $artist->id;
+                }
+
+                // Sync ke AudioDB (Hanya dilakukan jika belum lengkap untuk hemat API)
+                if (empty($artist->strBiography)) {
+                    $url = "https://www.theaudiodb.com/api/v1/json/2/search.php?s=" . urlencode($artist->name);
+                    $response = Http::get($url);
+
+                    if ($response->successful() && isset($response->json()['artists'])) {
+                        $data = $response->json()['artists'][0];
+                        $artist->update([
+                            'strBiography'       => $data['strBiographyEN'] ?? $data['strBiography'] ?? null,
+                            'strArtistFanart'    => $data['strArtistFanart'] ?? null,
+                            'strArtistFanart2'   => $data['strArtistFanart2'] ?? null,
+                            'strArtistBanner'    => $data['strArtistBanner'] ?? null,
+                            'strArtistClearart'  => $data['strArtistClearart'] ?? null,
+                            'strArtistLogo'      => $data['strArtistLogo'] ?? null,
+                            'strArtistWideThumb' => $data['strArtistWideThumb'] ?? null,
+                            'intFormedYear'      => $data['intFormedYear'] ?? null,
+                            'strGender'          => $data['strGender'] ?? null,
+                            'strCountry'         => $data['strCountry'] ?? null,
+                            'intMembers'         => $data['intMembers'] ?? null,
+                            'strWebsite'         => $data['strWebsite'] ?? null,
+                            'strFacebook'        => $data['strFacebook'] ?? null,
+                            'strTwitter'         => $data['strTwitter'] ?? null,
+                            'strMood'            => $data['strMood'] ?? null,
+                            'strStyle'           => $data['strStyle'] ?? null,
+                            'strGenre'           => $data['strGenre'] ?? null,
+                            'intCharted'         => $data['intCharted'] ?? 0,
+                        ]);
+                    } else {
+                        Log::error("Gagal update AudioDB data untuk artis: " . $artist->name);
+                    }
+                }
+            }
+
+            // --- 2. PROSES ALBUM ---
+            // Album biasanya dikaitkan dengan artis utama (index 0)
             $album = Album::updateOrCreate(
+                ['deezer_id' => $request->album_deezer_id], // Boleh diganti pakai spotify_id
                 [
-                    'deezer_id' => $request->album_deezer_id
-                ],
-                [
-                    'artist_id' => $artist->id,
+                    'artist_id' => $mainArtistId,
                     'slug'      => Str::slug($request->album_name),
-                    'title' => $request->album_name,
-                    'cover_xl' => $request->cover_xl,
+                    'title'     => $request->album_name,
+                    'cover_xl'  => $request->cover_xl,
                 ]
             );
-            Song::create([
+
+            // --- 3. PROSES LAGU ---
+            $song = Song::create([
                 'title'             => $request->song_title,
-
-                'artist_id'         => $artist->id,
                 'album_id'          => $album->id,
-
                 'deezer_id'         => $request->deezer_track_id,
-
                 'title_short'       => $request->title_short,
-
                 'title_version'     => $request->title_version,
-
                 'isrc'              => $request->isrc,
-
                 'duration'          => (int) ($request->duration ?? 0),
-
-                'explicit_lyrics'   => filter_var(
-                    $request->explicit_lyrics,
-                    FILTER_VALIDATE_BOOLEAN
-                ),
-
+                'explicit_lyrics'   => filter_var($request->explicit_lyrics, FILTER_VALIDATE_BOOLEAN),
                 'rank'              => (int) ($request->rank ?? 0),
-
                 'preview_url'       => $request->preview_url,
-
                 'audio_path'        => $audioPath,
-
                 'lyrics_path'       => $lyricsPath,
+                // 'artist_id' sudah dihapus karena kita pakai relasi pivot
             ]);
 
-            return redirect()
-                ->route('songs.index')
-                ->with('success', 'Song added');
+            // --- 4. ATTACH ARTISTS KE SONG (Pivot Table) ---
+            $song->artists()->sync($artistIds);
+
+            return redirect()->route('songs.index')->with('success', 'Song added successfully with multiple artists');
         } catch (\Exception $e) {
-            return back()->withErrors([
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('Error store song: ' . $e->getMessage());
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
@@ -279,5 +247,96 @@ class SongController extends Controller
         }
 
         return back()->with('success', "Berhasil sinkronisasi $count artis.");
+    }
+    public function fetchSpotify(Request $request,SpotifyMetadataService $spotify)
+    {
+        $searchTitle = $request->input('title');
+        $searchArtist = $request->input('artist');
+        $syncId = $request->input('sync_id'); // Menangkap ID lagu yang akan disinkronisasi
+
+        $results = null;
+
+        if ($searchTitle) {
+            $results = $spotify->getFullMetadata($searchTitle, $searchArtist);
+
+            if (!$results) {
+                $message = 'Lagu tidak ditemukan di Spotify.';
+                if ($searchArtist) {
+                    $message .= ' Coba hapus nama artis atau ganti ejaan.';
+                } else {
+                    $message .= ' Coba tambahkan nama artis untuk pencarian lebih spesifik.';
+                }
+
+                return back()->with('error', $message)->withInput();
+            }
+        }
+
+        // Kirimkan syncId ke view
+        return view('admin.songs.fetch-spotify', compact('results', 'searchTitle', 'searchArtist', 'syncId'));
+    }
+
+    public function updateFromSpotify(Request $request)
+    {
+        $request->validate([
+            'sync_id'    => 'required|exists:songs,id',
+            'track_data' => 'required|json',
+        ]);
+
+        try {
+            $song = Song::findOrFail($request->sync_id);
+            $trackData = json_decode($request->track_data, true);
+
+            // 1. PROSES ARTIS (Multiple Artists)
+            $artistIds = [];
+            $mainArtistId = null;
+            $artistsRaw = $trackData['artists_raw'] ?? [];
+
+            foreach ($artistsRaw as $index => $artistItem) {
+                $artist = Artist::updateOrCreate(
+                    ['spotify_id' => data_get($artistItem, 'id')],
+                    ['name' => data_get($artistItem, 'name')]
+                );
+
+                $artistIds[] = $artist->id;
+
+                if ($index === 0) {
+                    $mainArtistId = $artist->id;
+                }
+            }
+
+            // 2. PROSES ALBUM
+            $albumData = $trackData['album'] ?? [];
+            $album = Album::updateOrCreate(
+                ['spotify_id' => data_get($albumData, 'spotify_id')],
+                [
+                    'artist_id'    => $mainArtistId,
+                    'title'        => data_get($albumData, 'name'),
+                    'slug'         => Str::slug(data_get($albumData, 'name')),
+                    'cover_xl'     => data_get($albumData, 'cover_xl'),
+                    'release_date' => data_get($albumData, 'release_date'),
+                ]
+            );
+
+            // 3. UPDATE LAGU (Tidak menimpa audio_path dan lyrics_path)
+            $trackInfo = $trackData['track'] ?? [];
+            $song->update([
+                'title'           => data_get($trackInfo, 'name'),
+                'album_id'        => $album->id,
+                'spotify_id'      => data_get($trackInfo, 'spotify_id'),
+                'duration'        => data_get($trackInfo, 'duration'),
+                'preview_url'     => data_get($trackInfo, 'preview_url'),
+                'provider'        => 'Spotify',
+                'explicit_lyrics' => data_get($trackInfo, 'explicit'),
+                'isrc'            => data_get($trackInfo, 'isrc'),
+            ]);
+
+            // 4. SINKRONISASI RELASI ARTIS (Pivot)
+            $song->artists()->sync($artistIds);
+
+            return redirect()->route('songs.index')->with('success', 'Metadata lagu berhasil disinkronisasi dengan Spotify!');
+        } catch (\Exception $e) {
+            Log::error('Error sync spotify: ' . $e->getMessage());
+            return redirect()->route('songs.index')->withErrors(['error' => 'Gagal sinkronisasi: ' . $e->getMessage()]);
+        }
     }
 }

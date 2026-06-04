@@ -40,6 +40,11 @@
                         Songs
                     </a>
                 </li>
+                <li class="nav-item mb-2">
+                    <a href="/admin/artists" class="nav-link text-white">
+                        Artists
+                    </a>
+                </li>
 
             </ul>
 

@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Models\Song;
-use App\Models\UserSongHistory; // 👈 PASTIKAN INI ADA
+use App\Models\UserSongHistory;
+use App\Models\Artist;
+use App\Models\Album;
+use App\Services\SpotifyMetadataService;
+
 class UserStreamingController extends Controller
 {
     public function stream($audio_path)
@@ -44,11 +48,7 @@ class UserStreamingController extends Controller
             ], 500);
         }
     }
-    /*
-    |--------------------------------------------------------------------------
-    | STREAM LYRICS
-    |--------------------------------------------------------------------------
-    */
+
     public function lyrics($lyrics_path)
     {
         try {
@@ -57,11 +57,6 @@ class UserStreamingController extends Controller
             $fileName = $lyrics_path . '.txt';
             $fullPath = storage_path('app/temp_lyrics/' . $fileName);
 
-            /*
-            |--------------------------------------------------------------------------
-            | DOWNLOAD HANYA JIKA BELUM ADA
-            |--------------------------------------------------------------------------
-            */
             if (!file_exists($fullPath)) {
                 $url = "https://drive.google.com/uc?export=download&id=" . $lyrics_path;
 
@@ -81,11 +76,6 @@ class UserStreamingController extends Controller
                 }
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | RETURN TEXT DARI PENYIMPANAN LOKAL
-            |--------------------------------------------------------------------------
-            */
             return response(file_get_contents($fullPath), 200)
                 ->header('Content-Type', 'text/plain');
         } catch (\Exception $e) {
@@ -96,11 +86,6 @@ class UserStreamingController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | HELPER - CREATE DIRECTORY
-    |--------------------------------------------------------------------------
-    */
     private function ensureDirectoryExists($path)
     {
         if (!is_dir($path)) {
@@ -108,28 +93,28 @@ class UserStreamingController extends Controller
         }
     }
 
-    public function recordPlay($id)
+    public function recordPlay($id, SpotifyMetadataService $spotify)
     {
         $song = Song::findOrFail($id);
 
-        // 1. Tambah +1 ke play_count GLOBAL (untuk semua orang)
+        // 1. Eksekusi sinkronisasi Spotify sebelum mencatat riwayat putar
+        $this->syncSpotifyData($song, $spotify);
+
+        // 2. Tambah +1 ke play_count GLOBAL
         $song->increment('play_count');
 
-        // 2. Jika ada User yang Login, simpan riwayat personalnya
+        // 3. Jika ada User yang Login, simpan riwayat personalnya
         if (auth()->check()) {
             $userId = auth()->id();
 
-            // Cari apakah user ini sudah pernah muter lagu ini
             $history = UserSongHistory::where('user_id', $userId)
                 ->where('song_id', $id)
                 ->first();
 
             if ($history) {
-                // Jika sudah ada, tambah play_count +1 dan perbarui updated_at
                 $history->increment('play_count');
-                $history->touch(); // Memaksa updated_at berubah ke waktu sekarang
+                $history->touch();
             } else {
-                // Jika belum pernah, buat data baru
                 UserSongHistory::create([
                     'user_id' => $userId,
                     'song_id' => $id,
@@ -138,6 +123,104 @@ class UserStreamingController extends Controller
             }
         }
 
-        return response()->json(['success' => true]);
+        // 4. Kembalikan data lagu terbaru (PERBAIKAN DI SINI: 'artist' -> 'artists')
+        return response()->json([
+            'success' => true,
+            'song' => $song->fresh(['artists', 'album'])
+        ]);
+    }
+
+    private function syncSpotifyData(Song $song, SpotifyMetadataService $spotify)
+    {
+        if (empty($song->spotify_id) || is_null($song->tempo)) {
+
+            // 1. ✅ PERBAIKAN: Ambil artis utama dari pivot table, JANGAN pakai artist_id lagi!
+            $mainArtist = $song->artists()->first();
+            $artistName = $mainArtist ? $mainArtist->name : '';
+
+            $album = Album::find($song->album_id);
+
+            \Log::info("Mencari Spotify untuk lagu: {$song->title} - {$artistName}");
+
+            try {
+                $metadata = $spotify->getFullMetadata($song->title, $artistName);
+
+                if ($metadata) {
+                    \Log::info("Metadata DITEMUKAN untuk: {$song->title}");
+
+                    // 1. Update Album
+                    if ($album && !empty($metadata['album']['spotify_id'])) {
+                        $album->update([
+                            'spotify_id' => $metadata['album']['spotify_id'],
+                            'cover_xl'   => $metadata['album']['cover_xl'],
+                        ]);
+                    }
+
+                    // 2. ✅ PERBAIKAN: Masukkan kolom tempo dkk ke database!
+                    if (!empty($metadata['track']['spotify_id'])) {
+                        $song->update([
+                            'spotify_id'   => $metadata['track']['spotify_id'],
+                            'duration'     => $metadata['track']['duration'] ?? $song->duration,
+                            'preview_url'  => $metadata['track']['preview_url'] ?? $song->preview_url,
+
+                            // 👇 DATA INI YANG KETINGGALAN DI KODEMU SEBELUMNYA
+                            'isrc'         => $metadata['track']['isrc'] ?? $song->isrc,
+                            'popularity'   => $metadata['track']['popularity'] ?? $song->popularity,
+                            'track_number' => $metadata['track']['track_number'] ?? $song->track_number,
+                            'disc_number'  => $metadata['track']['disc_number'] ?? $song->disc_number,
+                            'tempo'        => $metadata['track']['tempo'],
+                            'valence'      => $metadata['track']['valence'],
+                            'energy'       => $metadata['track']['energy'],
+                            'danceability' => $metadata['track']['danceability'],
+                        ]);
+                    }
+
+                    // 3. LOGIKA BARU: MULTIPLE ARTISTS (FEAT)
+                    $artistIds = [];
+
+                    foreach ($metadata['artists_raw'] as $index => $spotifyArtist) {
+
+                        $dbArtist = Artist::where('spotify_id', $spotifyArtist['id'])->first();
+
+                        if (!$dbArtist) {
+                            $dbArtist = Artist::where('name', $spotifyArtist['name'])->first();
+
+                            if ($dbArtist) {
+                                if (empty($dbArtist->spotify_id)) {
+                                    try {
+                                        $dbArtist->update([
+                                            'spotify_id' => $spotifyArtist['id']
+                                        ]);
+                                    } catch (\Exception $e) {
+                                        \Log::warning("Spotify ID Bentrok (sudah dipakai artis lain) saat update artis: " . $spotifyArtist['name']);
+                                    }
+                                }
+                            } else {
+                                $dbArtist = Artist::create([
+                                    'spotify_id' => $spotifyArtist['id'],
+                                    'name'       => $spotifyArtist['name']
+                                ]);
+                            }
+                        }
+
+                        if ($index === 0 && !empty($metadata['artist']['picture_xl'])) {
+                            $dbArtist->update([
+                                'picture_xl' => $metadata['artist']['picture_xl'],
+                                'strGenre'   => $metadata['artist']['strGenre'] ?: $dbArtist->strGenre,
+                            ]);
+                        }
+
+                        $artistIds[] = $dbArtist->id;
+                    }
+
+                    // 4. Hubungkan Lagu dengan Semua ID Artis
+                    $song->artists()->sync($artistIds);
+                } else {
+                    \Log::warning("Metadata KOSONG dari Spotify untuk: {$song->title}");
+                }
+            } catch (\Exception $e) {
+                \Log::error("Error Fatal Spotify API: " . $e->getMessage());
+            }
+        }
     }
 }

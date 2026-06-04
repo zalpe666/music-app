@@ -22,11 +22,12 @@ class UserSearchController extends Controller
         // Hanya cari di database JIKA ada query dari URL
         // (Ini sangat menghemat memori server)
         if ($query) {
-            $songs = Song::with(['artist', 'album'])
+            // 👇 1. DIPERBAIKI: 'artists' (plural) dan 'album' (singular)
+            $songs = Song::with(['artists', 'album'])
                 ->where('title', 'LIKE', "%{$query}%")
-                ->orWhereHas('artist', function ($q) use ($query) {
+                ->orWhereHas('artists', function ($q) use ($query) {
                     $q->where('name', 'LIKE', "%{$query}%")
-                        ->orWhere('strGenre', 'LIKE', "%{$query}%"); // 👈 PASTIKAN BARIS INI ADA;
+                        ->orWhere('strGenre', 'LIKE', "%{$query}%");
                 })
                 ->limit(20)->get();
 
@@ -37,7 +38,8 @@ class UserSearchController extends Controller
                 ->limit(10)->get();
         } else {
             // Jika kosong, kirimkan sedikit data default saja untuk dirender cepat
-            $songs = Song::with(['artist', 'album'])->limit(50)->get();
+            // 👇 2. DIPERBAIKI JUGA DI SINI: 'artists' (plural)
+            $songs = Song::with(['artists', 'album'])->limit(50)->get();
             $artists = Artist::limit(50)->get();
             $albums = Album::with('artist')->limit(50)->get();
         }

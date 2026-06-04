@@ -4,526 +4,252 @@
 
 @section('content')
 
-    <div class="container-fluid">
+<div class="container-fluid">
 
-        <!-- Header -->
-        <div class="mb-4">
-
-            <h1 class="fw-bold">
-                Add Song
-            </h1>
-
-            <p class="text-muted">
-                Search song metadata from Deezer and upload audio
-            </p>
-
-        </div>
-
-        <!-- Error -->
-        @if ($errors->any())
-
-            <div class="alert alert-danger">
-
-                <ul class="mb-0">
-
-                    @foreach ($errors->all() as $error)
-                        <li>
-                            {{ $error }}
-                        </li>
-                    @endforeach
-
-                </ul>
-
-            </div>
-
-        @endif
-
-        <!-- Card -->
-        <div class="card border-0 shadow-sm">
-
-            <div class="card-body p-4">
-
-                <form action="{{ route('songs.store') }}" method="POST" enctype="multipart/form-data">
-
-                    @csrf
-
-                    <!-- Search -->
-                    <div class="mb-4">
-
-                        <label class="form-label fw-semibold">
-                            Search Song From Deezer
-                        </label>
-
-                        <input type="text" id="deezer_search_keyword" placeholder="Example: Alan Walker Faded"
-                            class="form-control">
-
-                    </div>
-
-                    <!-- Results -->
-                    <div id="deezer_search_results" class="row  mb-4 overflow-auto" style="max-height:400px;"></div>
-
-                    <!-- Hidden -->
-                    <input type="hidden" name="deezer_track_id">
-                    <input type="hidden" name="title_short">
-                    <input type="hidden" name="title_version">
-                    <input type="hidden" name="isrc">
-                    <input type="hidden" name="duration">
-                    <input type="hidden" name="explicit_lyrics">
-                    <input type="hidden" name="rank">
-
-                    <input type="hidden" name="cover_small">
-                    <input type="hidden" name="cover_medium">
-                    <input type="hidden" name="cover_big">
-                    <input type="hidden" name="cover_xl">
-
-                    <input type="hidden" name="preview_url">
-
-                    <input type="hidden" name="artist_deezer_id">
-                    <input type="hidden" name="artist_picture_small">
-                    <input type="hidden" name="artist_picture_medium">
-                    <input type="hidden" name="artist_picture_big">
-                    <input type="hidden" name="artist_picture_xl">
-
-                    <input type="hidden" name="album_deezer_id">
-
-                    <!-- Song Title -->
-                    <div class="mb-3">
-
-                        <label class="form-label fw-semibold">
-                            Song Title
-                        </label>
-
-                        <input type="text" name="song_title" class="form-control" id="song_title">
-
-                    </div>
-
-                    <!-- Artist -->
-                    <div class="mb-3">
-
-                        <label class="form-label fw-semibold">
-                            Artist
-                        </label>
-
-                        <input type="text" name="artist_name" class="form-control" id="artist_name">
-
-                    </div>
-                    <button type="button" class="btn btn-primary mt-2" onclick="copySongData()">
-                        Copy Gabungan (Artist - Title)
-                    </button>
-                    <!-- Album -->
-                    <div class="mb-3">
-
-                        <label class="form-label fw-semibold">
-                            Album
-                        </label>
-
-                        <input type="text" name="album_name" class="form-control">
-
-                    </div>
-
-                    <!-- Audio -->
-                    <div class="mb-3">
-
-                        <label class="form-label fw-semibold">
-                            Audio File
-                        </label>
-
-                        <input type="file" name="audio_file" accept=".mp3,audio/*" class="form-control">
-
-                    </div>
-
-                    <!-- Lyrics -->
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">
-                            Lyrics
-                        </label>
-
-                        <textarea name="lyrics" class="form-control" rows="10" placeholder="[00:12.00] Hello world..."></textarea>
-                    </div>
-                    <!-- Preview Sync Lyrics -->
-                    <div class="card border-0 bg-dark text-white mt-4">
-
-                        <div class="card-body">
-
-                            <h5 class="fw-bold mb-3">
-                                Lyrics Sync Preview
-                            </h5>
-
-                            <!-- AUDIO PLAYER -->
-                            <audio id="audioPreview" controls class="w-100 mb-4"></audio>
-
-                            <!-- CURRENT TIME -->
-                            <div class="mb-3 text-info">
-                                Current Time:
-                                <span id="currentTimeText">
-                                    0:00
-                                </span>
-                            </div>
-
-                            <!-- LYRICS -->
-                            <div id="lyricsPreview"
-                                style="
-                height:300px;
-                overflow:auto;
-                background:#111;
-                padding:20px;
-                border-radius:12px;
-            ">
-                            </div>
-
-                        </div>
-
-                    </div>
-                    <!-- Button -->
-                    <button class="btn btn-primary w-100 py-3 fw-bold">
-                        Save Song
-                    </button>
-
-                </form>
-
-            </div>
-
-        </div>
-
+    <div class="mb-4">
+        <h1 class="fw-bold">Add Song</h1>
+        <p class="text-muted">Search song metadata from Deezer/Spotify and upload audio</p>
     </div>
-    <script>
-        const audioInput = document.querySelector('[name="audio_file"]');
-        const audioPreview = document.getElementById('audioPreview');
 
-        const lyricsInput = document.querySelector('[name="lyrics"]');
-        const lyricsPreview = document.getElementById('lyricsPreview');
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-        const currentTimeText = document.getElementById('currentTimeText');
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form action="{{ route('songs.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
 
-        let parsedLyrics = [];
+                @if(request('spotify_id'))
+                    <div class="alert alert-success d-flex align-items-center mb-4">
+                        @if(request('cover_xl'))
+                            <img src="{{ request('cover_xl') }}" width="50" height="50" class="rounded me-3 object-fit-cover">
+                        @endif
+                        <div>
+                            <strong><i class="bi bi-spotify me-1"></i> Data Spotify Berhasil Dimuat!</strong><br>
+                            <small>Metadata telah otomatis diisi ke dalam form di bawah.</small>
+                        </div>
+                    </div>
+                @endif
 
-        // LOAD AUDIO
-        audioInput.addEventListener('change', function(e) {
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Search Song From Deezer (Opsional)</label>
+                    <input type="text" id="deezer_search_keyword" placeholder="Example: Alan Walker Faded" class="form-control">
+                </div>
+                <div id="deezer_search_results" class="row mb-4 overflow-auto" style="max-height:400px;"></div>
 
-            const file = e.target.files[0];
+                <input type="text" name="spotify_id" value="{{ old('spotify_id', request('spotify_id')) }}">
+                <input type="text" name="artists_raw" value="{{ request('artists_raw') }}">
+                <input type="text" name="deezer_track_id">
+                <input type="text" name="title_short">
+                <input type="text" name="title_version">
+                <input type="text" name="isrc">
+                <input type="text" name="duration" value="{{ old('duration', request('duration')) }}">
+                <input type="text" name="explicit_lyrics">
+                <input type="text" name="rank">
 
-            if (!file) return;
+                <input type="text" name="cover_small">
+                <input type="text" name="cover_medium">
+                <input type="text" name="cover_big">
+                <input type="text" name="cover_xl" value="{{ old('cover_xl', request('cover_xl')) }}">
 
-            const url = URL.createObjectURL(file);
+                <input type="text" name="preview_url" value="{{ old('preview_url', request('preview_url')) }}">
 
-            audioPreview.src = url;
+                <input type="text" name="artist_deezer_id">
+                <input type="text" name="artist_picture_small">
+                <input type="text" name="artist_picture_medium">
+                <input type="text" name="artist_picture_big">
+                <input type="text" name="artist_picture_xl">
+
+                <input type="text" name="album_deezer_id">
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Song Title</label>
+                    <input type="text" name="song_title" class="form-control" id="song_title" value="{{ old('song_title', request('song_title')) }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Artist</label>
+                    <input type="text" name="artist_name" class="form-control" id="artist_name" value="{{ old('artist_name', request('artist_name')) }}" required>
+                </div>
+
+                <input type="hidden" name="full_title" id="full_title">
+                <button type="button" class="btn btn-secondary btn-sm mb-3" onclick="combineData()">
+                    Copy Gabungan (Artist - Title)
+                </button>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Album</label>
+                    <input type="text" name="album_name" class="form-control" value="{{ old('album_name', request('album_name')) }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Audio File</label>
+                    <input type="file" name="audio_file" accept=".mp3,audio/*" class="form-control" {{ request('spotify_id') ? '' : 'required' }}>
+                    @if(request('preview_url'))
+                        <small class="text-muted d-block mt-2">Atau gunakan preview dari Spotify:</small>
+                        <audio controls class="mt-1 w-100" style="height: 40px;">
+                            <source src="{{ request('preview_url') }}" type="audio/mpeg">
+                        </audio>
+                    @endif
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Lyrics</label>
+                    <textarea name="lyrics" class="form-control" rows="10" placeholder="[00:12.00] Hello world...">{{ old('lyrics') }}</textarea>
+                </div>
+
+                <div class="card border-0 bg-dark text-white mt-4">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3">Lyrics Sync Preview</h5>
+                        <audio id="audioPreview" controls class="w-100 mb-4"></audio>
+                        <div class="mb-3 text-info">
+                            Current Time: <span id="currentTimeText">0:00</span>
+                        </div>
+                        <div id="lyricsPreview" style="height:300px; overflow:auto; background:#111; padding:20px; border-radius:12px;"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3 mt-4 fw-bold">
+                    Save Song
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const audioInput = document.querySelector('[name="audio_file"]');
+    const audioPreview = document.getElementById('audioPreview');
+    const lyricsInput = document.querySelector('[name="lyrics"]');
+    const lyricsPreview = document.getElementById('lyricsPreview');
+    const currentTimeText = document.getElementById('currentTimeText');
+    let parsedLyrics = [];
+
+    audioInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        audioPreview.src = url;
+    });
+
+    function parseLyrics(text) {
+        const lines = text.split('\n');
+        return lines.map(line => {
+            const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+            if (!match) return null;
+            return {
+                time: parseInt(match[1]) * 60 + parseFloat(match[2]),
+                text: match[3]
+            };
+        }).filter(Boolean);
+    }
+
+    function renderLyrics(activeIndex = -1) {
+        lyricsPreview.innerHTML = '';
+        parsedLyrics.forEach((line, index) => {
+            const div = document.createElement('div');
+            div.className = `py-2 px-3 rounded mb-2 ${index === activeIndex ? 'bg-primary text-white fw-bold' : 'text-secondary'}`;
+            div.innerText = line.text;
+            div.id = `lyric-${index}`;
+            lyricsPreview.appendChild(div);
         });
+    }
 
-        // PARSE LYRICS
-        function parseLyrics(text) {
+    lyricsInput.addEventListener('input', function() {
+        parsedLyrics = parseLyrics(this.value);
+        renderLyrics();
+    });
 
-            const lines = text.split('\n');
-
-            return lines.map(line => {
-
-                const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
-
-                if (!match) return null;
-
-                const minute = parseInt(match[1]);
-
-                const second = parseFloat(match[2]);
-
-                return {
-                    time: minute * 60 + second,
-                    text: match[3]
-                };
-
-            }).filter(Boolean);
-        }
-
-        // RENDER LYRICS
-        function renderLyrics(activeIndex = -1) {
-
-            lyricsPreview.innerHTML = '';
-
-            parsedLyrics.forEach((line, index) => {
-
-                const div = document.createElement('div');
-
-                div.className = `
-                py-2 px-3 rounded mb-2
-                ${index === activeIndex
-                    ? 'bg-primary text-white fw-bold'
-                    : 'text-secondary'}
-            `;
-
-                div.innerText = line.text;
-
-                div.id = `lyric-${index}`;
-
-                lyricsPreview.appendChild(div);
-            });
-        }
-
-        // UPDATE LYRICS
-        lyricsInput.addEventListener('input', function() {
-
-            parsedLyrics = parseLyrics(this.value);
-
-            renderLyrics();
+    audioPreview.addEventListener('timeupdate', function() {
+        const currentTime = audioPreview.currentTime;
+        currentTimeText.innerText = Math.floor(currentTime / 60) + ':' + String(Math.floor(currentTime % 60)).padStart(2, '0');
+        let activeIndex = -1;
+        parsedLyrics.forEach((line, index) => {
+            if (currentTime >= line.time) activeIndex = index;
         });
-
-        // AUDIO TIME UPDATE
-        audioPreview.addEventListener('timeupdate', function() {
-
-            const currentTime = audioPreview.currentTime;
-
-            currentTimeText.innerText =
-                Math.floor(currentTime / 60) +
-                ':' +
-                String(Math.floor(currentTime % 60)).padStart(2, '0');
-
-            let activeIndex = -1;
-
-            parsedLyrics.forEach((line, index) => {
-
-                if (currentTime >= line.time) {
-                    activeIndex = index;
-                }
-            });
-
-            renderLyrics(activeIndex);
-
-            // AUTO SCROLL
-            const activeLyric = document.getElementById(`lyric-${activeIndex}`);
-
-            if (activeLyric) {
-
-                activeLyric.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-            }
-        });
-    </script>
-    <script>
-        function combineData() {
-            const title = document.getElementById('song_title').value;
-            const artist = document.getElementById('artist_name').value;
-            document.getElementById('full_title').value = `${artist} - ${title}`;
+        renderLyrics(activeIndex);
+        const activeLyric = document.getElementById(`lyric-${activeIndex}`);
+        if (activeLyric) {
+            activeLyric.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    </script>
-    <script>
-        let debounce;
+    });
 
-        const searchInput = document.getElementById(
-            'deezer_search_keyword'
-        );
+    function combineData() {
+        const title = document.getElementById('song_title').value;
+        const artist = document.getElementById('artist_name').value;
+        document.getElementById('full_title').value = `${artist} - ${title}`;
+        alert(`Berhasil di-copy: ${artist} - ${title}`);
+    }
 
-        const resultContainer = document.getElementById(
-            'deezer_search_results'
-        );
+    // Script Deezer tetap ada seperti di code kamu untuk fallback
+    let debounce;
+    const searchInput = document.getElementById('deezer_search_keyword');
+    const resultContainer = document.getElementById('deezer_search_results');
 
+    if(searchInput) {
         searchInput.addEventListener('keyup', function() {
-
             clearTimeout(debounce);
-
-            debounce = setTimeout(() => {
-
-                searchDeezer(this.value);
-
-            }, 400);
-
+            debounce = setTimeout(() => { searchDeezer(this.value); }, 400);
         });
+    }
 
-        async function searchDeezer(keyword) {
-
-            if (keyword.length < 2) {
-
-                resultContainer.innerHTML = '';
-
+    async function searchDeezer(keyword) {
+        if (keyword.length < 2) {
+            resultContainer.innerHTML = ''; return;
+        }
+        resultContainer.innerHTML = `<div class="col-12 text-center">Searching...</div>`;
+        try {
+            const response = await fetch(`/admin/songs/search?q=${encodeURIComponent(keyword)}`);
+            const json = await response.json();
+            resultContainer.innerHTML = '';
+            if (!json.data || json.data.length === 0) {
+                resultContainer.innerHTML = `<div class="col-12 text-center py-4">No result</div>`;
                 return;
             }
-
-            resultContainer.innerHTML = `
-            <div class="col-12 text-center">
-                Searching...
-            </div>
-        `;
-
-            try {
-
-                const response = await fetch(
-                    `/admin/songs/search?q=${encodeURIComponent(keyword)}`
-                );
-
-                const json = await response.json();
-
-                resultContainer.innerHTML = '';
-
-                if (!json.data || json.data.length === 0) {
-
-                    resultContainer.innerHTML = `
-                    <div class="col-12 text-center py-4">
-                        No result
-                    </div>
-                `;
-
-                    return;
-                }
-
-                json.data.forEach(track => {
-
-                    const item = document.createElement('div');
-
-                    item.className = 'col-md-4';
-
-                    item.innerHTML = `
-                    <div class="card shadow-sm border-0 song-card"
-                        style="cursor:pointer">
-
-                        <div class="card-body">
-
-                            <div class="d-flex gap-3">
-
-                                <img
-                                    src="${track.album.cover_medium}"
-                                    width="100"
-                                    class="rounded"
-                                >
-
-                                <div class="flex-grow-1">
-
-                                    <h5 class="fw-bold">
-                                        ${track.title}
-                                    </h5>
-
-                                    <p class="mb-1 text-muted">
-                                        ${track.artist.name}
-                                    </p>
-
-                                    <p class="small text-secondary">
-                                        ${track.album.title}
-                                    </p>
-
-                                    <audio
-                                        controls
-                                        class="w-100"
-                                    >
-                                        <source
-                                            src="${track.preview}"
-                                            type="audio/mpeg"
-                                        >
-                                    </audio>
-
-                                </div>
-
+            json.data.forEach(track => {
+                const item = document.createElement('div');
+                item.className = 'col-md-4';
+                item.innerHTML = `
+                <div class="card shadow-sm border-0 song-card" style="cursor:pointer">
+                    <div class="card-body">
+                        <div class="d-flex gap-3">
+                            <img src="${track.album.cover_medium}" width="100" class="rounded">
+                            <div class="flex-grow-1">
+                                <h5 class="fw-bold">${track.title}</h5>
+                                <p class="mb-1 text-muted">${track.artist.name}</p>
+                                <p class="small text-secondary">${track.album.title}</p>
+                                <audio controls class="w-100"><source src="${track.preview}" type="audio/mpeg"></audio>
                             </div>
-
                         </div>
-
                     </div>
-                `;
-
-                    item.addEventListener('click', function() {
-
-                        selectSong(track);
-
-                    });
-
-                    resultContainer.appendChild(item);
-
-                });
-
-            } catch (err) {
-
-                console.log(err);
-
-                resultContainer.innerHTML = `
-                <div class="col-12 text-center text-danger py-4">
-                    Failed load Deezer API
-                </div>
-            `;
-            }
+                </div>`;
+                item.addEventListener('click', function() { selectSong(track); });
+                resultContainer.appendChild(item);
+            });
+        } catch (err) {
+            console.log(err);
+            resultContainer.innerHTML = `<div class="col-12 text-center text-danger py-4">Failed load Deezer API</div>`;
         }
+    }
 
-        function selectSong(track) {
-
-            document.querySelector(
-                '[name="song_title"]'
-            ).value = track.title;
-
-            document.querySelector(
-                '[name="artist_name"]'
-            ).value = track.artist.name;
-
-            document.querySelector(
-                '[name="album_name"]'
-            ).value = track.album.title;
-
-            document.querySelector(
-                '[name="deezer_track_id"]'
-            ).value = track.id;
-
-            document.querySelector(
-                '[name="title_short"]'
-            ).value = track.title_short || '';
-
-            document.querySelector(
-                '[name="title_version"]'
-            ).value = track.title_version || '';
-
-            document.querySelector(
-                '[name="isrc"]'
-            ).value = track.isrc || '';
-
-            document.querySelector(
-                '[name="duration"]'
-            ).value = track.duration || 0;
-
-            document.querySelector(
-                '[name="explicit_lyrics"]'
-            ).value = track.explicit_lyrics ? 1 : 0;
-
-            document.querySelector(
-                '[name="rank"]'
-            ).value = track.rank || 0;
-
-            document.querySelector(
-                '[name="cover_small"]'
-            ).value = track.album.cover_small || '';
-
-            document.querySelector(
-                '[name="cover_medium"]'
-            ).value = track.album.cover_medium || '';
-
-            document.querySelector(
-                '[name="cover_big"]'
-            ).value = track.album.cover_big || '';
-
-            document.querySelector(
-                '[name="cover_xl"]'
-            ).value = track.album.cover_xl || '';
-
-            document.querySelector(
-                '[name="preview_url"]'
-            ).value = track.preview || '';
-            document.querySelector(
-                '[name="artist_deezer_id"]'
-            ).value = track.artist.id;
-
-            document.querySelector(
-                '[name="artist_picture_small"]'
-            ).value = track.artist.picture_small || '';
-
-            document.querySelector(
-                '[name="artist_picture_medium"]'
-            ).value = track.artist.picture_medium || '';
-
-            document.querySelector(
-                '[name="artist_picture_big"]'
-            ).value = track.artist.picture_big || '';
-
-            document.querySelector(
-                '[name="artist_picture_xl"]'
-            ).value = track.artist.picture_xl || '';
-
-            document.querySelector(
-                '[name="album_deezer_id"]'
-            ).value = track.album.id;
-            alert('Song selected!');
-        }
-    </script>
+    function selectSong(track) {
+        document.querySelector('[name="song_title"]').value = track.title;
+        document.querySelector('[name="artist_name"]').value = track.artist.name;
+        document.querySelector('[name="album_name"]').value = track.album.title;
+        document.querySelector('[name="deezer_track_id"]').value = track.id;
+        document.querySelector('[name="duration"]').value = track.duration || 0;
+        document.querySelector('[name="explicit_lyrics"]').value = track.explicit_lyrics ? 1 : 0;
+        document.querySelector('[name="cover_xl"]').value = track.album.cover_xl || '';
+        document.querySelector('[name="preview_url"]').value = track.preview || '';
+        alert('Song selected from Deezer!');
+    }
+</script>
 
 @endsection
