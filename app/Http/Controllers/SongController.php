@@ -18,27 +18,25 @@ use App\Services\SpotifyMetadataService;
 
 class SongController extends Controller
 {
-    public function indexArtists()
-    {
-        $artists = Artist::all();
-        return view('admin.artist.index', compact('artists'));
-    }
-    public function showArtist(Artist $artist)
-    {
-        // Kamu bisa melempar data artis ke view detail
-        return view('admin.artist.show', compact('artist'));
-    }
-    public function sync(Artist $artist, ArtistDataService $service)
-    {
-        dd($artist->name);
-        $service->updateArtistData($artist);
-        return back()->with('success', 'Data ' . $artist->name . ' berhasil disinkronisasi!');
-    }
+
+    // public function showArtist(Artist $artist)
+    // {
+    //     // Kamu bisa melempar data artis ke view detail
+    //     return view('admin.artist.show', compact('artist'));
+    // }
     public function index()
     {
+        // Mengambil semua lagu untuk tabel utama
         $songs = Song::with(['album'])->latest()->paginate(20);
 
-        return view('admin.songs.index', compact('songs'));
+        // Mengambil lagu-lagu yang BUKAN dari Spotify untuk Sidebar (dibatasi 15 agar rapi)
+        $needsSyncSongs = Song::whereNull('provider')
+            ->orWhere('provider', '!=', 'spotify')
+            ->latest()
+            ->take(15)
+            ->get();
+
+        return view('admin.songs.index', compact('songs', 'needsSyncSongs'));
     }
 
     public function create()
@@ -229,25 +227,7 @@ class SongController extends Controller
     {
         //
     }
-    public function syncAll(ArtistDataService $service)
-    {
-        // Mengatur waktu eksekusi jadi tak terbatas agar tidak timeout
-        set_time_limit(0);
-
-        $artists = Artist::all();
-        $count = 0;
-
-        foreach ($artists as $artist) {
-            $service->updateArtistData($artist);
-
-            // Jeda 1 detik agar tidak kena blokir API TheAudioDB
-            sleep(1);
-            $count++;
-        }
-
-        return back()->with('success', "Berhasil sinkronisasi $count artis.");
-    }
-    public function fetchSpotify(Request $request,SpotifyMetadataService $spotify)
+    public function fetchSpotify(Request $request, SpotifyMetadataService $spotify)
     {
         $searchTitle = $request->input('title');
         $searchArtist = $request->input('artist');
@@ -305,16 +285,45 @@ class SongController extends Controller
 
             // 2. PROSES ALBUM
             $albumData = $trackData['album'] ?? [];
-            $album = Album::updateOrCreate(
-                ['spotify_id' => data_get($albumData, 'spotify_id')],
-                [
-                    'artist_id'    => $mainArtistId,
-                    'title'        => data_get($albumData, 'name'),
-                    'slug'         => Str::slug(data_get($albumData, 'name')),
+            $spotifyAlbumId = data_get($albumData, 'spotify_id');
+            $albumName = data_get($albumData, 'name');
+
+            // Cari album berdasarkan spotify_id ATAU (judul + artist) jika sebelumnya diinput manual
+            $album = Album::where('spotify_id', $spotifyAlbumId)
+                ->orWhere(function ($query) use ($albumName, $mainArtistId) {
+                    $query->where('title', $albumName)
+                        ->where('artist_id', $mainArtistId);
+                })
+                ->first();
+
+            if ($album) {
+                // Jika album sudah ada, kita update datanya (termasuk isi spotify_id jika sebelumnya manual/kosong)
+                $album->update([
+                    'spotify_id'   => $spotifyAlbumId,
                     'cover_xl'     => data_get($albumData, 'cover_xl'),
                     'release_date' => data_get($albumData, 'release_date'),
-                ]
-            );
+                ]);
+            } else {
+                // Jika album belum ada, buat baru dan pastikan slug-nya UNIK
+                $baseSlug = Str::slug($albumName);
+                $slug = $baseSlug;
+                $counter = 1;
+
+                // Looping untuk menambahkan angka jika slug sudah terpakai
+                while (Album::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+
+                $album = Album::create([
+                    'spotify_id'   => $spotifyAlbumId,
+                    'artist_id'    => $mainArtistId,
+                    'title'        => $albumName,
+                    'slug'         => $slug,
+                    'cover_xl'     => data_get($albumData, 'cover_xl'),
+                    'release_date' => data_get($albumData, 'release_date'),
+                ]);
+            }
 
             // 3. UPDATE LAGU (Tidak menimpa audio_path dan lyrics_path)
             $trackInfo = $trackData['track'] ?? [];

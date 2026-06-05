@@ -1,8 +1,9 @@
 <?php
 
+use App\Http\Controllers\AdminArtistController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SongController;
-
+use App\Http\Controllers\AdminDashboardController;
 /*
 |--------------------------------------------------------------------------
 | Admin Panel
@@ -24,9 +25,9 @@ Route::prefix('admin')
             'songs',
             SongController::class
         );
-        Route::get('/artists', [SongController::class, 'indexArtists'])->name('admin.artists.index');
-        Route::post('/artists/sync-all', [SongController::class, 'syncAll'])->name('admin.artists.syncAll');
-        Route::get('/artists/{artist}', [SongController::class, 'showArtist'])->name('admin.artists.show');
-        Route::post('/artists/{artist}/sync', [SongController::class, 'sync'])->name('admin.artists.sync');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+        Route::get('/artists', [AdminArtistController::class, 'index'])->name('admin.artists.index');
+        Route::post('/artists/sync-all', [AdminArtistController::class, 'syncAll'])->name('admin.artists.syncAll');
+        // Route::get('/artists/{artist}', [SongController::class, 'showArtist'])->name('admin.artists.show');
         Route::post('/songs/sync-update', [SongController::class, 'updateFromSpotify'])->name('songs.sync.update');
     });

@@ -52,7 +52,6 @@
                             <th class="px-6 py-4 font-semibold">Genre</th>
                             <th class="px-6 py-4 font-semibold">Mood</th>
                             <th class="px-6 py-4 font-semibold w-1/3">Bio (Snippet)</th>
-                            <th class="px-6 py-4 font-semibold text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -102,20 +101,6 @@
                                         title="{{ $artist->bio }}">
                                         {{ Str::limit($artist->bio, 75, '...') ?: 'Tidak ada bio yang tersedia.' }}
                                     </p>
-                                </td>
-
-                                <td class="px-6 py-4 text-center">
-                                    <div class="flex items-center justify-center">
-                                        <form action="{{ route('admin.artists.sync', $artist->id) }}" method="POST"
-                                            class="m-0">
-                                            @csrf
-                                            <button type="submit"
-                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition shadow-sm"
-                                                title="Sinkronisasi Data Artis Ini">
-                                                <i class="bi bi-arrow-repeat"></i> Sync Data
-                                            </button>
-                                        </form>
-                                    </div>
                                 </td>
                             </tr>
                         @empty

@@ -11,8 +11,20 @@ export default function PlayerInfo({ currentSong }) {
                 </div>
             </Link>
             <div className="truncate flex flex-col justify-center">
-                <Link href={route("player")} className="font-bold text-sm text-white hover:underline truncate">{currentSong.title}</Link>
-                <Link href={`/artist/${currentSong.artist?.slug}`} className="text-[11px] text-zinc-400 hover:underline">{currentSong.artist?.name}</Link>
+                <Link href={route("player")} className="font-bold text-sm text-white hover:underline truncate">
+                    {currentSong.title}
+                </Link>
+                <div className="text-[11px] text-zinc-400 truncate">
+                    {currentSong.artists?.map((artist, index) => (
+                        <span key={artist.id}>
+                            <Link href={`/artist/${artist.slug}`} className="hover:underline">
+                                {artist.name}
+                            </Link>
+                            {/* Tambahkan koma jika bukan artis terakhir */}
+                            {index < currentSong.artists.length - 1 && ", "}
+                        </span>
+                    ))}
+                </div>
             </div>
         </div>
     );

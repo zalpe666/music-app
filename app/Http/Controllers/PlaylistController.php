@@ -36,7 +36,7 @@ class PlaylistController extends Controller
             'songs' => function ($query) {
                 $query->withPivot('created_at'); // Mengambil created_at dari table playlist_song
             },
-            'songs.artist',
+            'songs.artists',
             'songs.album'
         ]);
 
