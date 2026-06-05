@@ -30,14 +30,13 @@ class SongController extends Controller
     }
     public function sync(Artist $artist, ArtistDataService $service)
     {
-        // Panggil service untuk update data
         dd($artist->name);
         $service->updateArtistData($artist);
         return back()->with('success', 'Data ' . $artist->name . ' berhasil disinkronisasi!');
     }
     public function index()
     {
-        $songs = Song::with(['album'])->latest()->paginate(10);
+        $songs = Song::with(['album'])->latest()->paginate(20);
 
         return view('admin.songs.index', compact('songs'));
     }
