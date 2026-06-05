@@ -37,7 +37,7 @@ class SongController extends Controller
     }
     public function index()
     {
-        $songs = Song::with(['album'])->latest()->paginate(20);
+        $songs = Song::with(['album'])->latest()->paginate(10);
 
         return view('admin.songs.index', compact('songs'));
     }

@@ -26,6 +26,7 @@ class ArtistDataService
 
         // 2. Update model artis dengan data yang kamu mau
         $artist->update([
+            'picture_xl'     => $data['strArtistThumb'] ?? null,
             'strBiography'       => $data['strBiographyEN'] ?? $data['strBiography'] ?? null,
             'strArtistFanart'    => $data['strArtistFanart'] ?? null,
             'strArtistFanart2'   => $data['strArtistFanart2'] ?? null,
