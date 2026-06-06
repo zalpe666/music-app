@@ -21,9 +21,9 @@
                 <form action="{{ route('admin.artists.syncAll') }}" method="POST" class="m-0">
                     @csrf
                     <button type="submit"
-                        onclick="return confirm('Apakah Anda yakin ingin melakukan sinkronisasi untuk semua artis? Proses ini mungkin memakan waktu.')"
+                        onclick="return confirm('Apakah Anda yakin ingin melakukan sinkronisasi untuk artis yang belum tervalidasi? Proses ini mungkin memakan waktu.')"
                         class="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-full hover:bg-amber-600 transition shadow-sm">
-                        <i class="bi bi-cloud-arrow-down-fill text-lg"></i> Sync Semua Artis
+                        <i class="bi bi-cloud-arrow-down-fill text-lg"></i> Sync Data Pending
                     </button>
                 </form>
             </div>
@@ -49,8 +49,10 @@
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
                             <th class="px-6 py-4 font-semibold">Nama Artis</th>
+                            <th class="px-6 py-4 font-semibold">Status</th>
                             <th class="px-6 py-4 font-semibold">Genre</th>
                             <th class="px-6 py-4 font-semibold">Mood</th>
+                            <th class="px-6 py-4 font-semibold">Style</th>
                             <th class="px-6 py-4 font-semibold w-1/3">Bio (Snippet)</th>
                         </tr>
                     </thead>
@@ -74,32 +76,60 @@
                                     </div>
                                 </td>
 
+                                {{-- KOLOM STATUS BARU --}}
                                 <td class="px-6 py-4">
-                                    @if ($artist->strGenre)
+                                    @if ($artist->is_validated)
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <i class="bi bi-check-circle-fill"></i> Synced
+                                        </span>
+                                    @else
+                                        <span
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <i class="bi bi-hourglass-split"></i> Pending
+                                        </span>
+                                    @endif
+                                </td>
+
+                                {{-- KOLOM GENRE MENGGUNAKAN RELASI --}}
+                                <td class="px-6 py-4">
+                                    @if ($artist->genre)
                                         <span
                                             class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                            {{ $artist->strGenre }}
+                                            {{ $artist->genre->name }}
                                         </span>
                                     @else
                                         <span class="text-slate-400 text-sm">-</span>
                                     @endif
                                 </td>
 
+                                {{-- KOLOM MOOD MENGGUNAKAN RELASI --}}
                                 <td class="px-6 py-4">
-                                    @if ($artist->strMood)
+                                    @if ($artist->mood)
                                         <span
                                             class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                                            {{ $artist->strMood }}
+                                            {{ $artist->mood->name }}
+                                        </span>
+                                    @else
+                                        <span class="text-slate-400 text-sm">-</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if ($artist->style)
+                                        <span
+                                            class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                                            {{ $artist->style->name }}
                                         </span>
                                     @else
                                         <span class="text-slate-400 text-sm">-</span>
                                     @endif
                                 </td>
 
+                                {{-- KOLOM BIO MENGGUNAKAN strBiography --}}
                                 <td class="px-6 py-4">
                                     <p class="text-sm text-slate-500 whitespace-normal leading-relaxed line-clamp-2"
-                                        title="{{ $artist->bio }}">
-                                        {{ Str::limit($artist->bio, 75, '...') ?: 'Tidak ada bio yang tersedia.' }}
+                                        title="{{ $artist->strBiography }}">
+                                        {{ Str::limit($artist->strBiography, 75, '...') ?: 'Tidak ada bio yang tersedia.' }}
                                     </p>
                                 </td>
                             </tr>

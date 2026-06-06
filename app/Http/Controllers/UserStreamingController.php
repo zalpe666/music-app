@@ -8,6 +8,7 @@ use App\Models\Song;
 use App\Models\UserSongHistory;
 use App\Models\Artist;
 use App\Models\Album;
+use App\Models\Genre; // 👈 JANGAN LUPA IMPORT MODEL GENRE
 use App\Services\SpotifyMetadataService;
 
 class UserStreamingController extends Controller
@@ -123,10 +124,10 @@ class UserStreamingController extends Controller
             }
         }
 
-        // 4. Kembalikan data lagu terbaru (PERBAIKAN DI SINI: 'artist' -> 'artists')
+        // 4. ✅ PERBAIKAN: Load relasi genre, mood, dan style agar UI tidak blank
         return response()->json([
             'success' => true,
-            'song' => $song->fresh(['artists', 'album'])
+            'song' => $song->fresh(['artists.genre', 'artists.mood', 'artists.style', 'album'])
         ]);
     }
 
@@ -134,7 +135,6 @@ class UserStreamingController extends Controller
     {
         if (empty($song->spotify_id) || is_null($song->tempo)) {
 
-            // 1. ✅ PERBAIKAN: Ambil artis utama dari pivot table, JANGAN pakai artist_id lagi!
             $mainArtist = $song->artists()->first();
             $artistName = $mainArtist ? $mainArtist->name : '';
 
@@ -156,14 +156,12 @@ class UserStreamingController extends Controller
                         ]);
                     }
 
-                    // 2. ✅ PERBAIKAN: Masukkan kolom tempo dkk ke database!
+                    // 2. Update Data Teknis Lagu
                     if (!empty($metadata['track']['spotify_id'])) {
                         $song->update([
                             'spotify_id'   => $metadata['track']['spotify_id'],
                             'duration'     => $metadata['track']['duration'] ?? $song->duration,
                             'preview_url'  => $metadata['track']['preview_url'] ?? $song->preview_url,
-
-                            // 👇 DATA INI YANG KETINGGALAN DI KODEMU SEBELUMNYA
                             'isrc'         => $metadata['track']['isrc'] ?? $song->isrc,
                             'popularity'   => $metadata['track']['popularity'] ?? $song->popularity,
                             'track_number' => $metadata['track']['track_number'] ?? $song->track_number,
@@ -192,7 +190,7 @@ class UserStreamingController extends Controller
                                             'spotify_id' => $spotifyArtist['id']
                                         ]);
                                     } catch (\Exception $e) {
-                                        \Log::warning("Spotify ID Bentrok (sudah dipakai artis lain) saat update artis: " . $spotifyArtist['name']);
+                                        \Log::warning("Spotify ID Bentrok saat update artis: " . $spotifyArtist['name']);
                                     }
                                 }
                             } else {
@@ -203,11 +201,29 @@ class UserStreamingController extends Controller
                             }
                         }
 
-                        if ($index === 0 && !empty($metadata['artist']['picture_xl'])) {
-                            $dbArtist->update([
-                                'picture_xl' => $metadata['artist']['picture_xl'],
-                                'strGenre'   => $metadata['artist']['strGenre'] ?: $dbArtist->strGenre,
-                            ]);
+                        // ✅ PERBAIKAN: Menangani konversi String Genre dari API menjadi ID Relasi
+                        if ($index === 0) {
+                            $artistUpdateData = [];
+
+                            if (!empty($metadata['artist']['picture_xl'])) {
+                                $artistUpdateData['picture_xl'] = $metadata['artist']['picture_xl'];
+                            }
+
+                            // Cek apakah Spotify Service mengembalikan string genre
+                            if (!empty($metadata['artist']['strGenre'])) {
+                                $genreName = $metadata['artist']['strGenre'];
+                                
+                                // Cari genre berdasarkan nama, kalau tidak ada, buat baru di tabel genres
+                                $genre = Genre::firstOrCreate(['name' => $genreName]);
+                                
+                                // Simpan ID-nya untuk di-update ke tabel artists
+                                $artistUpdateData['genre_id'] = $genre->id;
+                            }
+
+                            // Eksekusi update jika ada data yang perlu diubah (foto atau genre)
+                            if (!empty($artistUpdateData)) {
+                                $dbArtist->update($artistUpdateData);
+                            }
                         }
 
                         $artistIds[] = $dbArtist->id;

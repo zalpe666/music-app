@@ -7,7 +7,7 @@ use App\Models\Song;
 use Illuminate\Http\Request;
 use App\Models\Artist;
 use App\Models\Album;
-
+use App\Models\Genre;
 class UserHomeController extends Controller
 {
     /*
@@ -60,12 +60,7 @@ class UserHomeController extends Controller
             ->limit(5)
             ->get();
 
-        $genres = Artist::whereNotNull('strGenre')
-            ->where('strGenre', '!=', '')
-            ->select('strGenre')
-            ->distinct()
-            ->limit(8)
-            ->pluck('strGenre');
+        $genres = Genre::limit(24)->pluck('name');
 
         return Inertia::render('Dashboard', [
             'songs' => $songs,

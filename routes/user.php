@@ -12,7 +12,7 @@ use App\Http\Controllers\UserHomeController;
 use App\Http\Controllers\PlaylistController;
 use App\Http\Controllers\UserGenreController;
 use App\Http\Controllers\UserSearchController;
-
+use App\Http\Controllers\UserAIController;  
 /*
 |--------------------------------------------------------------------------
 | Public
@@ -52,6 +52,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/lyrics/{lyrics_path}', [UserStreamingController::class, 'lyrics']);
     Route::delete('/stream/{id}', [UserStreamingController::class, 'delete']);
     Route::get('/genre/{genre}', [UserGenreController::class, 'show'])->name('genre.show');
+
+    Route::post('/player/ai-next-song', [UserAIController::class, 'index'])->name('player.ai.next');
 
     Route::post('/songs/{id}/play', [UserStreamingController::class, 'recordPlay'])->name('songs.play');
 

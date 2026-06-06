@@ -20,27 +20,31 @@ class UserSearchController extends Controller
         $albums = [];
 
         // Hanya cari di database JIKA ada query dari URL
-        // (Ini sangat menghemat memori server)
         if ($query) {
-            // 👇 1. DIPERBAIKI: 'artists' (plural) dan 'album' (singular)
-            $songs = Song::with(['artists', 'album'])
+            // 👇 1. Tambahkan relasi genre, mood, dan style
+            $songs = Song::with(['artists.genre', 'artists.mood', 'artists.style', 'album'])
                 ->where('title', 'LIKE', "%{$query}%")
                 ->orWhereHas('artists', function ($q) use ($query) {
                     $q->where('name', 'LIKE', "%{$query}%")
-                        ->orWhere('strGenre', 'LIKE', "%{$query}%");
+                        // 👇 2. Perbaikan logika pencarian genre (menggunakan relasi)
+                        ->orWhereHas('genre', function ($genreQuery) use ($query) {
+                            $genreQuery->where('name', 'LIKE', "%{$query}%");
+                        });
                 })
                 ->limit(20)->get();
 
-            $artists = Artist::where('name', 'LIKE', "%{$query}%")->limit(10)->get();
+            // 👇 3. Tambahkan relasi untuk Artist juga agar data di frontend lengkap
+            $artists = Artist::with(['genre', 'mood', 'style'])
+                ->where('name', 'LIKE', "%{$query}%")
+                ->limit(10)->get();
 
-            $albums = Album::with('artist')
+            $albums = Album::with('artist') // (Atau 'artists' jika Album juga pakai relasi jamak)
                 ->where('title', 'LIKE', "%{$query}%")
                 ->limit(10)->get();
         } else {
-            // Jika kosong, kirimkan sedikit data default saja untuk dirender cepat
-            // 👇 2. DIPERBAIKI JUGA DI SINI: 'artists' (plural)
-            $songs = Song::with(['artists', 'album'])->limit(50)->get();
-            $artists = Artist::limit(50)->get();
+            // 👇 4. Jangan lupa tambahkan relasi di blok default (kosong) ini juga
+            $songs = Song::with(['artists.genre', 'artists.mood', 'artists.style', 'album'])->limit(50)->get();
+            $artists = Artist::with(['genre', 'mood', 'style'])->limit(50)->get();
             $albums = Album::with('artist')->limit(50)->get();
         }
 
@@ -48,7 +52,7 @@ class UserSearchController extends Controller
             'songs' => $songs,
             'artists' => $artists,
             'albums' => $albums,
-            'initialQuery' => $query ?? "" // Lempar ke frontend agar input otomatis terisi
+            'initialQuery' => $query ?? ""
         ]);
     }
 }

@@ -112,9 +112,23 @@ export default function SidebarRight({
                                         </div>
 
                                         <div className="flex flex-wrap gap-2 mb-4">
-                                            {mainArtist?.strGenre && <span className="px-2 py-1 bg-white/10 text-zinc-300 text-[10px] rounded-md font-medium border border-white/5">{mainArtist.strGenre}</span>}
-                                            {mainArtist?.strMood && <span className="px-2 py-1 bg-green-500/10 text-green-400 text-[10px] rounded-md font-medium border border-green-500/20">{mainArtist.strMood}</span>}
-                                            {mainArtist?.strStyle && <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-[10px] rounded-md font-medium border border-blue-500/20">{mainArtist.strStyle}</span>}
+                                            {mainArtist?.genre?.name && (
+                                                <span className="px-2 py-1 bg-white/10 text-zinc-300 text-[10px] rounded-md font-medium border border-white/5">
+                                                    {mainArtist.genre.name}
+                                                </span>
+                                            )}
+
+                                            {mainArtist?.mood?.name && (
+                                                <span className="px-2 py-1 bg-green-500/10 text-green-400 text-[10px] rounded-md font-medium border border-green-500/20">
+                                                    {mainArtist.mood.name}
+                                                </span>
+                                            )}
+
+                                            {mainArtist?.style?.name && (
+                                                <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-[10px] rounded-md font-medium border border-blue-500/20">
+                                                    {mainArtist.style.name}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {mainArtist?.strBiography ? (

@@ -11,6 +11,7 @@ class Artist extends Model
         'deezer_id',
         'spotify_id',
         'name',
+        'is_validated',
         'slug',
         'picture_xl',
         'strBiography',
@@ -68,5 +69,21 @@ class Artist extends Model
     public function songs()
     {
         return $this->belongsToMany(Song::class, 'artist_song', 'artist_id', 'song_id');
+    }
+    public function genre()
+    {
+        return $this->belongsTo(Genre::class);
+    }
+
+    // Relasi ke tabel moods
+    public function mood()
+    {
+        return $this->belongsTo(Mood::class);
+    }
+
+    // Relasi ke tabel styles
+    public function style()
+    {
+        return $this->belongsTo(Style::class);
     }
 }
