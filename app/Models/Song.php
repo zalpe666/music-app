@@ -44,7 +44,17 @@ class Song extends Model
         'tempo',
         'valence',
         'energy',
-        'danceability'
+        'danceability',
+
+        'genre_id',
+        'mood_id',
+        'style_id',
+        'theme',
+        'genre_id',
+        'description',      // Pastikan ini ada
+        'youtube_url',      // Sesuaikan dengan nama tabelmu
+        'audiodb_status', // 👈 Tambahkan ini
+        'local_video_path', // 👈 WAJIB ADA DI SINI
     ];
 
     protected $casts = [

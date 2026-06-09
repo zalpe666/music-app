@@ -29,9 +29,9 @@ class Artist extends Model
         'strWebsite',
         'strFacebook',
         'strTwitter',
-        'strMood',
-        'strStyle',
-        'strGenre',
+        'mood_id',
+        'style_id',
+        'genre_id',
         'intCharted'
     ];
 
@@ -85,5 +85,10 @@ class Artist extends Model
     public function style()
     {
         return $this->belongsTo(Style::class);
+    }
+    public function albums()
+    {
+        // Satu artis bisa memiliki banyak album
+        return $this->hasMany(Album::class);
     }
 }

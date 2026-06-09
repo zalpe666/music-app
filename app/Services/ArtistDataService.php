@@ -22,7 +22,11 @@ class ArtistDataService
         }
 
         $data = $response->json()['artists'][0];
-
+        Log::info("Data TheAudioDB untuk {$artist->name}: ", [
+            'genre' => $data['strGenre'] ?? 'KOSONG',
+            'mood'  => $data['strMood'] ?? 'KOSONG',
+            'style' => $data['strStyle'] ?? 'KOSONG'
+        ]);
         // Siapkan array data dasar yang akan di-update
         $updateData = [
             'picture_xl'         => $data['strArtistThumb'] ?? null,

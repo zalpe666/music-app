@@ -23,7 +23,8 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "lucide-react": "^1.16.0",
+        "framer-motion": "^12.40.0",
+        "lucide-react": "^1.17.0",
         "zustand": "^5.0.13"
     }
 }

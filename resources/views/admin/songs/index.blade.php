@@ -170,6 +170,20 @@
                                                     <i class="bi bi-earbuds"></i>
                                                 </a>
                                             @endif
+                                            <a href="{{ route('songs.audiodb.show', $song->id) }}"
+                                                class="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition shadow-sm relative"
+                                                title="Sync TheAudioDB">
+                                                <i class="bi bi-database-down"></i>
+
+                                                @if ($song->audiodb_status === 'validated')
+                                                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                                                        <span
+                                                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                        <span
+                                                            class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-white"></span>
+                                                    </span>
+                                                @endif
+                                            </a>
                                             <a href="{{ route('songs.fetch', ['title' => $song->title, 'sync_id' => $song->id]) }}"
                                                 class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition shadow-sm"
                                                 title="Sync Metadata">

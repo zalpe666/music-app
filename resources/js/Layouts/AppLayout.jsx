@@ -11,7 +11,7 @@ import TopBar from "./TopBar";
 import SidebarLeft from "./SidebarLeft";
 import SidebarRight from "./SidebarRight";
 import DesktopFooter from "./DesktopFooter";
-
+import VideoModal from "@/Components/VideoModal";
 export default function AppLayout({ children }) {
     const { auth } = usePage().props;
     const { url } = usePage();
@@ -33,7 +33,8 @@ export default function AppLayout({ children }) {
     const {
         currentSong, isPlaying, currentTime, duration, isLyricsMode,
         setIsLyricsMode, setCurrentTime, setDuration, nextSong, prevSong,
-        togglePlay, songs, currentIndex, playSong, isShuffle, toggleShuffle
+        togglePlay, songs, currentIndex, playSong, isShuffle, toggleShuffle,
+        showVideoModal, toggleVideoModal
     } = usePlayerStore();
     useEffect(() => {
         if (auth?.top_song_ids) {
@@ -185,7 +186,8 @@ export default function AppLayout({ children }) {
                     ref={scrollContainerRef}
                     className="flex-1 relative overflow-y-auto scrollbar-hide bg-zinc-950"
                 >
-                    {url !== '/player' && <TopBar />}
+                    {/* {url !== '/player' && <TopBar />} */}
+                    <TopBar />
                     {children}
                 </main>
 
@@ -232,6 +234,11 @@ export default function AppLayout({ children }) {
                     if (currentTime) e.target.currentTime = currentTime;
                 }}
                 onEnded={nextSong}
+            />
+            <VideoModal
+                isOpen={showVideoModal}
+                currentSong={currentSong}
+                onClose={() => toggleVideoModal(false)}
             />
         </div>
     );

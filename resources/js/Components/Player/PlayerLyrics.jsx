@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-export default function PlayerLyrics({ currentSong, currentTime, isLyricsMode }) {
+export default function PlayerLyrics({ currentSong, currentTime }) {
     const [parsedLyrics, setParsedLyrics] = useState([]);
     const [loadingLyrics, setLoadingLyrics] = useState(false);
     const [isAutoScrolling, setIsAutoScrolling] = useState(true);
@@ -66,9 +66,8 @@ export default function PlayerLyrics({ currentSong, currentTime, isLyricsMode })
     };
 
     return (
-        <div className={`relative z-10 h-full flex flex-col items-center justify-center transition-all duration-700 ${isLyricsMode ? "absolute inset-0 w-full" : "w-full md:w-1/2"}`}>
+        <div className="relative z-10 h-full flex flex-col items-center justify-center transition-all duration-700 flex-1 w-full">
             
-            {/* Tombol Sync Manual */}
             {!isAutoScrolling && (
                 <button
                     onClick={() => setIsAutoScrolling(true)}
@@ -81,7 +80,7 @@ export default function PlayerLyrics({ currentSong, currentTime, isLyricsMode })
             <div
                 ref={lyricsContainerRef}
                 onScroll={handleManualScroll}
-                className={`h-[calc(100vh-250px)] overflow-y-auto scrollbar-hide py-[35vh] px-6 w-full transition-all ${isLyricsMode ? "max-w-6xl" : "max-w-4xl"}`}
+                className="flex flex-col items-start h-[calc(100vh-250px)] overflow-y-auto scrollbar-hide py-[35vh] px-6 w-full max-w-3xl transition-all duration-700"
                 style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
             >
                 {parsedLyrics.map((line, index) => (
@@ -89,7 +88,9 @@ export default function PlayerLyrics({ currentSong, currentTime, isLyricsMode })
                         key={index}
                         ref={(el) => (lyricRefs.current[index] = el)}
                         onClick={() => handleLyricClick(line.time)}
-                        className={`text-3xl lg:text-5xl font-bold py-6 transition-all cursor-pointer ${index === activeIndex ? "text-white scale-100" : "text-white/40 scale-95 hover:text-white/60"}`}
+                        className={`text-left w-full origin-left text-3xl lg:text-5xl font-bold py-6 transition-all duration-300 cursor-pointer ${
+                            index === activeIndex ? "text-white scale-100" : "text-white/40 scale-95 hover:text-white/60"
+                        }`}
                     >
                         {line.text || "♪"}
                     </p>

@@ -54,4 +54,13 @@ class AdminArtistController extends Controller
         // Langsung kembalikan respons instan ke admin tanpa menunggu proses selesai
         return back()->with('success', "Proses sinkronisasi artis telah dimulai di latar belakang (Queue). Anda bisa bebas meninggalkan atau me-refresh halaman ini.");
     }
+    public function summary()
+    {
+        // Ambil data artis, hitung relasi songs & albums, urutkan dari A-Z, dan paginasi 15 data per halaman
+        $artists = Artist::withCount(['songs', 'albums'])
+            ->orderBy('name', 'asc')
+            ->paginate(15);
+
+        return view('admin.artist.summary', compact('artists'));
+    }
 }

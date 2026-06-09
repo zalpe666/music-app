@@ -118,11 +118,21 @@ const usePlayerStore = create(
             isShuffle: false,
             explicit_lyrics: false,
             isAlbumMode: false,
+            showVideoModal: false, // 👈 TAMBAHKAN INI
+            showVideoPlayer: false,
+
+            setShowVideoPlayer: (value) => set({ showVideoPlayer: value }),
+            toggleVideoModal: (val) =>
+                set((state) => ({ showVideoModal: val })),
 
             setIsLyricsMode: (val) => set({ isLyricsMode: val }),
             toggleLyricsMode: () =>
                 set((state) => ({ isLyricsMode: !state.isLyricsMode })),
-
+            toggleVideoModal: (val) =>
+                set((state) => ({
+                    showVideoModal:
+                        val !== undefined ? val : !state.showVideoModal,
+                })),
             setAllSongs: (songs) => set({ allSongs: songs }),
             setPlaylist: (songs, isArtistMode = false, isAlbumMode = false) =>
                 set({
@@ -192,13 +202,23 @@ const usePlayerStore = create(
             */
 
             nextSong: async () => {
+                const state = get();
+
+                // 1. GEMBOK ANTI-SPAM (Mencegah macet/ketiban)
+                if (state.isFetchingAi) {
+                    console.log(
+                        "⏳ Sedang memuat lagu AI, harap tunggu sebentar...",
+                    );
+                    return; // Hentikan eksekusi kalau masih fetching
+                }
+
                 const {
                     songs,
                     currentIndex,
                     currentSong,
                     isShuffle,
                     playedHistory = [],
-                } = get();
+                } = state;
 
                 if (!songs.length) return;
 
@@ -223,40 +243,65 @@ const usePlayerStore = create(
                     );
                 }
 
-                const newAiSong = await get().fetchAiSongFromDB();
+                // --- KUNCI STATE: Mulai mencari lagu AI ---
+                set({ isFetchingAi: true });
 
-                if (newAiSong && newAiSong.id) {
-                    const updatedHistory = [
-                        ...playedHistory,
-                        currentSong.id,
-                    ].slice(-50);
-                    set({ playedHistory: updatedHistory });
+                try {
+                    // 2. LOGIC AI LEBIH PINTAR
+                    // Kita kirimkan ID artis yang sedang diputar biar backend tidak mengirim lagu dari artis yang sama
+                    const recentArtistId =
+                        currentSong?.artist_id || currentSong?.artist?.id;
 
-                    const songExists = songs.some((s) => s.id === newAiSong.id);
-                    let newIndex = currentIndex;
+                    // Pass payload ke fungsi fetch kamu
+                    const newAiSong = await get().fetchAiSongFromDB({
+                        exclude_artist_id: recentArtistId,
+                        history: playedHistory,
+                    });
 
-                    if (!songExists) {
-                        const updatedSongs = [...songs, newAiSong];
-                        set({
-                            songs: updatedSongs,
-                            originalSongs: updatedSongs,
-                        });
-                        newIndex = updatedSongs.length - 1;
-                    } else {
-                        newIndex = songs.findIndex(
+                    if (newAiSong && newAiSong.id) {
+                        const updatedHistory = [
+                            ...playedHistory,
+                            currentSong.id,
+                        ].slice(-50);
+                        set({ playedHistory: updatedHistory });
+
+                        const songExists = songs.some(
                             (s) => s.id === newAiSong.id,
                         );
+                        let newIndex = currentIndex;
+
+                        if (!songExists) {
+                            const updatedSongs = [...songs, newAiSong];
+                            set({
+                                songs: updatedSongs,
+                                originalSongs: updatedSongs,
+                            });
+                            newIndex = updatedSongs.length - 1;
+                        } else {
+                            newIndex = songs.findIndex(
+                                (s) => s.id === newAiSong.id,
+                            );
+                        }
+
+                        // Mainkan lagu baru
+                        get().playSong(newAiSong, newIndex);
+                    } else {
+                        console.log(
+                            "AI: Gagal mendapat lagu dari DB (atau habis), mengulang history/fallback.",
+                        );
+                        get().clearPlayedHistory();
+
+                        const nextIndex = (currentIndex + 1) % songs.length;
+                        get().playSong(songs[nextIndex], nextIndex);
                     }
-
-                    get().playSong(newAiSong, newIndex);
-                } else {
-                    console.log(
-                        "AI: Gagal mendapat lagu dari DB (atau habis), mengulang history/fallback.",
-                    );
-                    get().clearPlayedHistory();
-
+                } catch (error) {
+                    console.error("Gagal memuat lagu AI:", error);
+                    // Fallback kalau fetch gagal, play lagu acak dari playlist saat ini
                     const nextIndex = (currentIndex + 1) % songs.length;
                     get().playSong(songs[nextIndex], nextIndex);
+                } finally {
+                    // --- BUKA KUNCI STATE: Selesai mencari (berhasil maupun gagal) ---
+                    set({ isFetchingAi: false });
                 }
             },
 

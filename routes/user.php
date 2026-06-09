@@ -12,7 +12,7 @@ use App\Http\Controllers\UserHomeController;
 use App\Http\Controllers\PlaylistController;
 use App\Http\Controllers\UserGenreController;
 use App\Http\Controllers\UserSearchController;
-use App\Http\Controllers\UserAIController;  
+use App\Http\Controllers\UserAIController;
 /*
 |--------------------------------------------------------------------------
 | Public
@@ -56,6 +56,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/player/ai-next-song', [UserAIController::class, 'index'])->name('player.ai.next');
 
     Route::post('/songs/{id}/play', [UserStreamingController::class, 'recordPlay'])->name('songs.play');
+    Route::get('/video/{path}', [UserStreamingController::class, 'streamVideo'])
+        ->where('path', '.*')
+        ->name('video.stream');
+
 
     Route::get('/album/{album:slug}', [UserHomeController::class, 'album']);
     Route::inertia('/PlayerMini', 'PlayerMini')->name('player.mini');

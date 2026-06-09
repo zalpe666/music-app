@@ -10,6 +10,8 @@ use App\Models\Artist;
 use App\Models\Album;
 use App\Models\Genre; // 👈 JANGAN LUPA IMPORT MODEL GENRE
 use App\Services\SpotifyMetadataService;
+use App\Jobs\DownloadMusicVideo;
+use Illuminate\Support\Facades\Cache;
 
 class UserStreamingController extends Controller
 {
@@ -94,17 +96,23 @@ class UserStreamingController extends Controller
         }
     }
 
-    public function recordPlay($id, SpotifyMetadataService $spotify)
+    public function recordPlay($id)
     {
         $song = Song::findOrFail($id);
 
-        // 1. Eksekusi sinkronisasi Spotify sebelum mencatat riwayat putar
-        $this->syncSpotifyData($song, $spotify);
+        \Log::info("🎵 Memutar lagu: " . $song->title);
 
-        // 2. Tambah +1 ke play_count GLOBAL
+        if ($song->youtube_url && empty($song->local_video_path)) {
+            $cacheKey = "downloading_video_song_{$song->id}";
+
+            if (!Cache::has($cacheKey)) {
+                Cache::put($cacheKey, true, 600);
+                DownloadMusicVideo::dispatch($song);
+            }
+        }
+
         $song->increment('play_count');
 
-        // 3. Jika ada User yang Login, simpan riwayat personalnya
         if (auth()->check()) {
             $userId = auth()->id();
 
@@ -124,7 +132,6 @@ class UserStreamingController extends Controller
             }
         }
 
-        // 4. ✅ PERBAIKAN: Load relasi genre, mood, dan style agar UI tidak blank
         return response()->json([
             'success' => true,
             'song' => $song->fresh(['artists.genre', 'artists.mood', 'artists.style', 'album'])
@@ -212,10 +219,10 @@ class UserStreamingController extends Controller
                             // Cek apakah Spotify Service mengembalikan string genre
                             if (!empty($metadata['artist']['strGenre'])) {
                                 $genreName = $metadata['artist']['strGenre'];
-                                
+
                                 // Cari genre berdasarkan nama, kalau tidak ada, buat baru di tabel genres
                                 $genre = Genre::firstOrCreate(['name' => $genreName]);
-                                
+
                                 // Simpan ID-nya untuk di-update ke tabel artists
                                 $artistUpdateData['genre_id'] = $genre->id;
                             }
@@ -238,5 +245,18 @@ class UserStreamingController extends Controller
                 \Log::error("Error Fatal Spotify API: " . $e->getMessage());
             }
         }
+    }
+    public function streamVideo($path)
+    {
+        $fullPath = storage_path('app/' . $path);
+
+        if (!file_exists($fullPath)) {
+            abort(404, 'Video tidak ditemukan');
+        }
+
+        return response()->file($fullPath, [
+            'Content-Type' => 'video/mp4',
+            'Accept-Ranges' => 'bytes',
+        ]);
     }
 }

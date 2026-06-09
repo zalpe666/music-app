@@ -15,6 +15,9 @@ use App\Services\ArtistDataService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use App\Services\SpotifyMetadataService;
+use App\Models\Genre;
+use App\Models\Mood;
+use App\Models\Style;
 
 class SongController extends Controller
 {
@@ -48,7 +51,6 @@ class SongController extends Controller
     {
         $request->validate([
             'song_title'  => 'required',
-            // 'artist_name' dihapus dari validasi single, kita pakai artists_raw
             'audio_file'  => 'required|file',
             'lyrics'      => 'nullable|string',
         ]);
@@ -57,132 +59,159 @@ class SongController extends Controller
             $googleDrive = new GoogleDriveStorageService();
             $rootFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
-            // Folder berdasarkan Deezer ID / Spotify ID (bebas pakai yang mana)
-            $songFolderName = $request->deezer_track_id ?? $request->spotify_id ?? time();
+            // Ganti fallback folder name pure menggunakan spotify_id
+            $songFolderName = $request->spotify_id ?? time();
 
             $songFolder = $googleDrive->findFolder($songFolderName, $rootFolderId);
             if (!$songFolder) {
                 $songFolder = $googleDrive->createFolder($songFolderName, $rootFolderId);
             }
 
-            // Upload audio
+            // Upload audio (Tetap)
             $audioUpload = $googleDrive->upload($request->file('audio_file'), $songFolder['id']);
             $audioPath = $audioUpload['id'];
 
-            // Upload lyrics
+            // Upload lyrics (Tetap)
             $lyricsPath = null;
             if ($request->filled('lyrics')) {
                 $fileName = time() . '.lrc';
                 $tempDir = storage_path('app/temp');
-
                 if (!file_exists($tempDir)) mkdir($tempDir, 0777, true);
-
                 $tempPath = $tempDir . '/' . $fileName;
                 file_put_contents($tempPath, $request->lyrics);
-
                 $lyricsFile = new UploadedFile($tempPath, $fileName, 'text/plain', null, true);
                 $lyricsUpload = $googleDrive->upload($lyricsFile, $songFolder['id']);
                 $lyricsPath = $lyricsUpload['id'];
-
                 unlink($tempPath);
             }
 
             // --- 1. PROSES BANYAK ARTIS ---
             $artistIds = [];
-            $mainArtistId = null; // Menyimpan ID artis pertama untuk relasi Album
+            $mainArtistId = null;
 
-            // Decode JSON artists_raw dari form
             $artistsData = json_decode($request->artists_raw, true) ?? [];
 
-            // Fallback jika tidak ada data dari Spotify (misal input manual)
+            // Fallback jika input manual
             if (empty($artistsData) && $request->filled('artist_name')) {
                 $artistsData[] = [
-                    'id' => $request->artist_deezer_id ?? Str::random(10), // Fallback ID
+                    'id' => $request->spotify_id ?? Str::random(10), // Ganti ke spotify_id
                     'name' => $request->artist_name,
                 ];
             }
 
             foreach ($artistsData as $index => $artistItem) {
-                // Update atau Create masing-masing artis
                 $artist = Artist::updateOrCreate(
-                    ['spotify_id' => data_get($artistItem, 'id')], // Atau deezer_id tergantung prioritasmu
+                    ['spotify_id' => data_get($artistItem, 'id')],
                     ['name' => data_get($artistItem, 'name')]
                 );
 
-                // Simpan ID untuk pivot table
                 $artistIds[] = $artist->id;
+                if ($index === 0) $mainArtistId = $artist->id;
 
-                // Simpan artis pertama sebagai artis utama untuk Album
-                if ($index === 0) {
-                    $mainArtistId = $artist->id;
-                }
-
-                // Sync ke AudioDB (Hanya dilakukan jika belum lengkap untuk hemat API)
-                if (empty($artist->strBiography)) {
-                    $url = "https://www.theaudiodb.com/api/v1/json/2/search.php?s=" . urlencode($artist->name);
-                    $response = Http::get($url);
-
-                    if ($response->successful() && isset($response->json()['artists'])) {
-                        $data = $response->json()['artists'][0];
-                        $artist->update([
-                            'strBiography'       => $data['strBiographyEN'] ?? $data['strBiography'] ?? null,
-                            'strArtistFanart'    => $data['strArtistFanart'] ?? null,
-                            'strArtistFanart2'   => $data['strArtistFanart2'] ?? null,
-                            'strArtistBanner'    => $data['strArtistBanner'] ?? null,
-                            'strArtistClearart'  => $data['strArtistClearart'] ?? null,
-                            'strArtistLogo'      => $data['strArtistLogo'] ?? null,
-                            'strArtistWideThumb' => $data['strArtistWideThumb'] ?? null,
-                            'intFormedYear'      => $data['intFormedYear'] ?? null,
-                            'strGender'          => $data['strGender'] ?? null,
-                            'strCountry'         => $data['strCountry'] ?? null,
-                            'intMembers'         => $data['intMembers'] ?? null,
-                            'strWebsite'         => $data['strWebsite'] ?? null,
-                            'strFacebook'        => $data['strFacebook'] ?? null,
-                            'strTwitter'         => $data['strTwitter'] ?? null,
-                            'strMood'            => $data['strMood'] ?? null,
-                            'strStyle'           => $data['strStyle'] ?? null,
-                            'strGenre'           => $data['strGenre'] ?? null,
-                            'intCharted'         => $data['intCharted'] ?? 0,
-                        ]);
-                    } else {
-                        Log::error("Gagal update AudioDB data untuk artis: " . $artist->name);
-                    }
-                }
+                // Sync TheAudioDB (Tetap, tidak perlu diubah)
+                // if (empty($artist->strBiography)) { ... }
             }
-
             // --- 2. PROSES ALBUM ---
-            // Album biasanya dikaitkan dengan artis utama (index 0)
             $album = Album::updateOrCreate(
-                ['deezer_id' => $request->album_deezer_id], // Boleh diganti pakai spotify_id
                 [
+                    // KONDISI PENCARIAN: Cari album berdasarkan Artis DAN Judul Album
                     'artist_id' => $mainArtistId,
-                    'slug'      => Str::slug($request->album_name),
                     'title'     => $request->album_name,
-                    'cover_xl'  => $request->cover_xl,
+                ],
+                [
+                    // DATA YANG DI-UPDATE/INSERT: Jika ketemu, update data ini. Jika tidak, buat baru.
+                    'spotify_id' => $request->album_spotify_id,
+                    'slug'       => Str::slug($request->album_name),
+                    'cover_xl'   => $request->cover_xl,
                 ]
             );
+
+            // --- 2.5 TARIK DATA METADATA DARI THEAUDIODB ---
+            $audioDbData = [
+                'genre_id'    => null,
+                'mood_id'     => null,
+                'style_id'    => null,
+                'theme'       => null,
+                'description' => null,
+                'youtube_url' => null,
+            ];
+
+            // Ambil nama artis utama (dari input form atau data spotify)
+            $artistName = $request->artist_name ?? data_get($artistsData, '0.name');
+
+            if ($artistName && $request->song_title) {
+                try {
+                    $url = "https://www.theaudiodb.com/api/v1/json/2/searchtrack.php";
+                    // Gunakan timeout(5) agar jika API down, upload lagu tidak error
+                    $response = Http::timeout(5)->get($url, [
+                        's' => $artistName,
+                        't' => $request->song_title
+                    ]);
+                    Log::info(
+                        'TheAudioDB URL: ' .
+                            $url .
+                            '?' .
+                            http_build_query([
+                                's' => $artistName,
+                                't' => $request->song_title
+                            ])
+                    );
+
+                    // TheAudioDB mengembalikan {"track": null} jika lagu tidak ketemu
+                    if ($response->successful() && isset($response->json()['track']) && $response->json()['track'] !== null) {
+                        $trackInfo = $response->json()['track'][0];
+
+                        if (!empty($trackInfo['strGenre']) && $trackInfo['strGenre'] !== '...') {
+                            $genre = Genre::firstOrCreate(['name' => $trackInfo['strGenre']]);
+                            $audioDbData['genre_id'] = $genre->id;
+                        }
+
+                        if (!empty($trackInfo['strMood']) && $trackInfo['strMood'] !== '...') {
+                            $mood = Mood::firstOrCreate(['name' => $trackInfo['strMood']]);
+                            $audioDbData['mood_id'] = $mood->id;
+                        }
+
+                        if (!empty($trackInfo['strStyle']) && $trackInfo['strStyle'] !== '...') {
+                            $style = Style::firstOrCreate(['name' => $trackInfo['strStyle']]);
+                            $audioDbData['style_id'] = $style->id;
+                        }
+
+                        $audioDbData['theme'] = (!empty($trackInfo['strTheme']) && $trackInfo['strTheme'] !== '...') ? $trackInfo['strTheme'] : null;
+                        $audioDbData['description'] = !empty($trackInfo['strDescriptionEN']) ? $trackInfo['strDescriptionEN'] : null;
+                        $audioDbData['youtube_url'] = !empty($trackInfo['strMusicVid']) ? $trackInfo['strMusicVid'] : null;
+                    }
+                } catch (\Exception $apiException) {
+                    // Catat error API, tapi biarkan proses simpan lagu berlanjut
+                    Log::warning('Gagal fetch data TheAudioDB saat insert lagu: ' . $apiException->getMessage());
+                }
+            }
 
             // --- 3. PROSES LAGU ---
             $song = Song::create([
                 'title'             => $request->song_title,
                 'album_id'          => $album->id,
-                'deezer_id'         => $request->deezer_track_id,
-                'title_short'       => $request->title_short,
-                'title_version'     => $request->title_version,
+                'spotify_id'        => $request->spotify_id,
                 'isrc'              => $request->isrc,
                 'duration'          => (int) ($request->duration ?? 0),
                 'explicit_lyrics'   => filter_var($request->explicit_lyrics, FILTER_VALIDATE_BOOLEAN),
-                'rank'              => (int) ($request->rank ?? 0),
                 'preview_url'       => $request->preview_url,
                 'audio_path'        => $audioPath,
                 'lyrics_path'       => $lyricsPath,
-                // 'artist_id' sudah dihapus karena kita pakai relasi pivot
+                'provider'          => 'Spotify',
+
+                // Masukkan data dari TheAudioDB (Akan bernilai null jika API gagal/kosong)
+                'genre_id'          => $audioDbData['genre_id'],
+                'mood_id'           => $audioDbData['mood_id'],
+                'style_id'          => $audioDbData['style_id'],
+                'theme'             => $audioDbData['theme'],
+                'description'       => $audioDbData['description'],
+                'youtube_url'       => $audioDbData['youtube_url'],
             ]);
 
-            // --- 4. ATTACH ARTISTS KE SONG (Pivot Table) ---
+            // --- 4. ATTACH ARTISTS (Tetap) ---
             $song->artists()->sync($artistIds);
 
-            return redirect()->route('songs.index')->with('success', 'Song added successfully with multiple artists');
+            return redirect()->route('songs.index')->with('success', 'Song added successfully with metadata!');
         } catch (\Exception $e) {
             Log::error('Error store song: ' . $e->getMessage());
             return back()->withErrors(['error' => $e->getMessage()]);
@@ -199,6 +228,17 @@ class SongController extends Controller
         );
 
         return response()->json($response->json());
+    }
+    public function searchSpotify(Request $request, SpotifyMetadataService $spotifyService)
+    {
+        $keyword = $request->query('q');
+        if (!$keyword) {
+            return response()->json(['data' => []]);
+        }
+
+        $results = $spotifyService->getFullMetadata($keyword);
+
+        return response()->json(['data' => $results]);
     }
 
     public function show(string $id)
