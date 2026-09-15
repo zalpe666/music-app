@@ -13,8 +13,7 @@ class UserAIController extends Controller
             $currentSongId = $request->input('current_song_id');
             $playedHistory = $request->input('played_history', []);
             $userTopSongIds = $request->input('user_top_song_ids', []);
-            // Tangkap exclude_artist_id yang kita kirim dari React sebelumnya
-            $excludeArtistId = $request->input('exclude_artist_id'); 
+            $excludeArtistId = $request->input('exclude_artist_id');
 
             if (!is_array($playedHistory)) $playedHistory = [];
             if (!is_array($userTopSongIds)) $userTopSongIds = [];
@@ -28,117 +27,134 @@ class UserAIController extends Controller
             $currentArtistIds = $currentSong->artists->pluck('id')->toArray();
             $currentPrimaryArtist = $currentSong->artists->first();
 
-            $genreId = $currentPrimaryArtist ? $currentPrimaryArtist->genre_id : null;
-            $moodId  = $currentPrimaryArtist ? $currentPrimaryArtist->mood_id : null;
-            $styleId = $currentPrimaryArtist ? $currentPrimaryArtist->style_id : null;
+            // Ekstrak metadata artis (Fallback ke metadata Song jika ada)
+            $genreId = $currentPrimaryArtist ? $currentPrimaryArtist->genre_id : $currentSong->genre_id;
+            $moodId  = $currentPrimaryArtist ? $currentPrimaryArtist->mood_id : $currentSong->mood_id;
+            $styleId = $currentPrimaryArtist ? $currentPrimaryArtist->style_id : $currentSong->style_id;
 
             // =========================================================
-            // 2. FILTER KAKU (STRICT VIBE FILTERING)
+            // 2. QUERY KANDIDAT (Memperluas Pencarian)
             // =========================================================
-            $query = Song::with(['album', 'artists.genre', 'artists.mood', 'artists.style'])
+            // Kita ambil 300 lagu acak yang belum diputar.
+            // Tidak di-filter kaku di database agar AI punya banyak opsi menghitung jarak.
+            $candidates = Song::with(['album', 'artists.genre', 'artists.mood', 'artists.style'])
                 ->where('id', '!=', $currentSongId)
-                ->whereNotIn('id', $playedHistory);
-
-            if ($genreId || $moodId || $styleId) {
-                $query->whereHas('artists', function ($q) use ($genreId, $moodId, $styleId) {
-                    $q->where(function ($subQ) use ($genreId, $moodId, $styleId) {
-                        if ($genreId) $subQ->orWhere('genre_id', $genreId);
-                        if ($moodId)  $subQ->orWhere('mood_id', $moodId);
-                        if ($styleId) $subQ->orWhere('style_id', $styleId);
-                    });
-                });
-            }
-
-            // Ambil lebih banyak kandidat untuk variasi (misal: 300)
-            $candidates = $query->inRandomOrder()->limit(300)->get();
-
-            if ($candidates->isEmpty()) {
-                $candidates = Song::with(['album', 'artists.genre', 'artists.mood', 'artists.style'])
-                    ->where('id', '!=', $currentSongId)
-                    ->whereNotIn('id', $playedHistory)
-                    ->inRandomOrder()
-                    ->limit(200)
-                    ->get();
-            }
+                ->whereNotIn('id', $playedHistory)
+                ->inRandomOrder()
+                ->limit(300)
+                ->get();
 
             if ($candidates->isEmpty()) {
                 return response()->json(['message' => 'Lagu habis'], 404);
             }
 
             // =========================================================
-            // 3. AI SCORING LOGIC (Penjurian Pintar)
+            // 3. AI SCORING LOGIC (Penggabungan Audio Features & Vibe)
             // =========================================================
             $scoredCandidates = [];
 
             foreach ($candidates as $song) {
-                // Base score dinaikkan sedikit agar perhitungan lebih stabil
-                $score = 20; 
+                $score = 20; // Base score
                 $matchedCriteria = [];
                 $candidateArtistIds = $song->artists->pluck('id')->toArray();
 
-                // --- LOGIC ANTI-MONOPOLI ARTIS ---
+                // --- A. LOGIC ANTI-MONOPOLI (UX) ---
                 $isSameArtist = !empty(array_intersect($currentArtistIds, $candidateArtistIds));
-                
+
                 if ($isSameArtist) {
-                    // Jika artis ini sama dengan artis yang baru saja di-play, beri PENALTI BERAT
                     if ($excludeArtistId && in_array($excludeArtistId, $candidateArtistIds)) {
-                        $score -= 50; 
+                        $score -= 40; // Penalti berat jika baru saja diputar
                         $matchedCriteria[] = "Penalti: Artis Baru Saja Diputar";
                     } else {
-                        // Jika sama artis tapi bukan yang terakhir diputar, beri bonus KECIL saja
                         $score += 5;
                         $matchedCriteria[] = "Sama Artis";
                     }
                 } else {
-                    // Beri bonus untuk artis yang BERBEDA agar playlist lebih variatif
-                    $score += 20;
+                    $score += 25; // Bonus eksplorasi agar playlist tidak bosan
                     $matchedCriteria[] = "Artis Berbeda (Eksplorasi)";
                 }
 
-                // --- LOGIC ANTI-MONOPOLI ALBUM ---
-                if ($song->album_id === $currentSong->album_id) {
-                    // Jangan beri bonus besar, cukup kecil saja agar tidak stuck di 1 album
-                    $score += 5; 
-                    $matchedCriteria[] = "Sama Album";
+                if ($song->album_id && $song->album_id === $currentSong->album_id) {
+                    $score += 5;
                 }
 
-                // --- VIBE MATCHING (Fokus Utama AI) ---
+                // --- B. VIBE MATCHING (Kecocokan Genre/Mood) ---
                 $candidatePrimaryArtist = $song->artists->first();
-                if ($currentPrimaryArtist && $candidatePrimaryArtist) {
-                    if ($candidatePrimaryArtist->genre_id && $candidatePrimaryArtist->genre_id === $currentPrimaryArtist->genre_id) {
-                        $score += 50; // Genre adalah nyawa utama shuffle
-                        $matchedCriteria[] = "Satu Genre";
-                    }
-                    if ($candidatePrimaryArtist->mood_id && $candidatePrimaryArtist->mood_id === $currentPrimaryArtist->mood_id) {
-                        $score += 20;
-                        $matchedCriteria[] = "Mood Mirip";
-                    }
-                    if ($candidatePrimaryArtist->style_id && $candidatePrimaryArtist->style_id === $currentPrimaryArtist->style_id) {
+                $cGenre = $candidatePrimaryArtist ? $candidatePrimaryArtist->genre_id : $song->genre_id;
+                $cMood  = $candidatePrimaryArtist ? $candidatePrimaryArtist->mood_id : $song->mood_id;
+
+                if ($genreId && $cGenre === $genreId) {
+                    $score += 40;
+                    $matchedCriteria[] = "Satu Genre";
+                }
+                if ($moodId && $cMood === $moodId) {
+                    $score += 20;
+                    $matchedCriteria[] = "Satu Mood";
+                }
+
+                // --- C. SPOTIFY AUDIO FEATURES MATCHING (THE REAL AI) ---
+                // Menghitung "Sonic Similarity" (Kedekatan Suara)
+
+                // 1. Tempo (BPM)
+                if ($currentSong->tempo && $song->tempo) {
+                    $bpmDiff = abs($currentSong->tempo - $song->tempo);
+                    if ($bpmDiff <= 15) { // Sangat sinkron (DJ mix friendly)
+                        $score += 30;
+                        $matchedCriteria[] = "Tempo Sangat Sinkron (±15 BPM)";
+                    } elseif ($bpmDiff <= 30) {
                         $score += 15;
-                        $matchedCriteria[] = "Style Cocok";
+                        $matchedCriteria[] = "Tempo Mirip";
                     }
                 }
 
-                // --- USER PREFERENCE & DATA MUSIK ---
+                // 2. Energy (0.0 to 1.0)
+                if ($currentSong->energy && $song->energy) {
+                    $energyDiff = abs($currentSong->energy - $song->energy);
+                    if ($energyDiff <= 0.15) {
+                        $score += 25;
+                        $matchedCriteria[] = "Energi Serupa";
+                    }
+                }
+
+                // 3. Valence / Kebahagiaan (0.0 to 1.0)
+                if ($currentSong->valence && $song->valence) {
+                    $valenceDiff = abs($currentSong->valence - $song->valence);
+                    if ($valenceDiff <= 0.15) {
+                        $score += 25;
+                        $matchedCriteria[] = "Vibe/Emosi Identik";
+                    }
+                }
+
+                // 4. Danceability (0.0 to 1.0)
+                if ($currentSong->danceability && $song->danceability) {
+                    $danceDiff = abs($currentSong->danceability - $song->danceability);
+                    if ($danceDiff <= 0.15) {
+                        $score += 15;
+                        $matchedCriteria[] = "Ritme Tari Cocok";
+                    }
+                }
+
+                // --- D. USER PREFERENCE & METADATA ---
                 if (in_array($song->id, $userTopSongIds)) {
                     $score += 20;
                     $matchedCriteria[] = "Favorit User";
                 }
 
+                // Jangan campur aduk eksplisit jika user dengar lagu bersih
                 if ($song->explicit_lyrics === $currentSong->explicit_lyrics) {
-                    $score += 5;
+                    $score += 10;
                 }
 
+                // Popularitas memberi sedikit dorongan (maks 15 poin)
                 if ($song->popularity) {
-                    $popularityBonus = min(($song->popularity / 100) * 15, 15);
-                    $score += $popularityBonus;
+                    $score += min(($song->popularity / 100) * 15, 15);
                 }
 
-                // PENTING: Cegah skor minus sebelum dipangkatkan agar tidak jadi positif besar (contoh: -20^2 = 400)
+                // Validasi agar skor tidak minus sebelum dipangkatkan
                 $score = max(1, $score);
-                
-                // Gunakan pangkat 1.5 alih-alih 2 untuk mengurangi ketimpangan skor secara ekstrem
-                $weight = pow($score, 1.5); 
+
+                // Gunakan pangkat 1.5 agar lagu dengan skor tinggi probabilitasnya lebih masuk akal
+                $weight = pow($score, 1.5);
 
                 $scoredCandidates[] = [
                     'song' => $song,
@@ -149,24 +165,22 @@ class UserAIController extends Controller
             }
 
             // =========================================================
-            // 4. HYBRID: SORTING & POTONG KE TOP 30 KANDIDAT
+            // 4. SORTING & SELEKSI ROULETTE WHEEL
             // =========================================================
+            // Urutkan berdasarkan skor tertinggi
             usort($scoredCandidates, function ($a, $b) {
                 return $b['score'] <=> $a['score'];
             });
 
-            // Perbesar kolam undian menjadi top 30 agar lebih random tapi tetap relevan
-            $topCandidates = array_slice($scoredCandidates, 0, 30); 
+            // Ambil Top 20 Kandidat Terbaik untuk diundi
+            $topCandidates = array_slice($scoredCandidates, 0, 20);
 
             $totalWeight = 0;
             foreach ($topCandidates as $item) {
                 $totalWeight += $item['weight'];
             }
 
-            // =========================================================
-            // 5. SELEKSI ROULETTE WHEEL 
-            // =========================================================
-            // Gunakan mt_rand dengan perkalian float agar probabilitas lebih presisi
+            // Pengundian pintar berdasarkan bobot (Roulette Wheel)
             $random = mt_rand() / mt_getrandmax() * $totalWeight;
             $nextMatchDetails = null;
 
@@ -178,12 +192,13 @@ class UserAIController extends Controller
                 }
             }
 
+            // Fallback jika terjadi bug pembulatan float
             if (!$nextMatchDetails) {
                 $nextMatchDetails = $topCandidates[0];
             }
 
             $nextMatch = $nextMatchDetails['song'];
-            $nextMatch->setAttribute('ai_score', $nextMatchDetails['score']);
+            $nextMatch->setAttribute('ai_score', round($nextMatchDetails['score'], 2));
             $nextMatch->setAttribute('ai_reasons', $nextMatchDetails['matchedCriteria']);
 
             return response()->json($nextMatch, 200);

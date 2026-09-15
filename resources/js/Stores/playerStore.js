@@ -17,6 +17,7 @@ const usePlayerStore = create(
             currentSong: null,
             currentIndex: 0,
             isPlaying: false,
+            isFetchingAi: false, 
             currentTime: 0,
             duration: 0,
             volume: 1,
@@ -27,20 +28,18 @@ const usePlayerStore = create(
             playedHistory: [],
             clearPlayedHistory: () => set({ playedHistory: [] }),
 
-            // 👇 DIPERBAIKI: Menggunakan ID relasi baru (genre_id, mood_id, artists)
             getRecommendations: (limit = 5) => {
                 const { songs, currentSong } = get();
                 if (!currentSong || songs.length <= 1) return [];
 
                 const others = songs.filter((s) => s.id !== currentSong.id);
-                const currentArtist = currentSong.artists?.[0] || {}; // Pakai artists array
+                const currentArtist = currentSong.artists?.[0] || {}; 
 
                 return others
                     .map((s) => {
                         let score = 10;
-                        const candidateArtist = s.artists?.[0] || {}; // Pakai artists array
+                        const candidateArtist = s.artists?.[0] || {}; 
 
-                        // Cek kecocokan menggunakan ID Relasi
                         if (
                             candidateArtist.id &&
                             candidateArtist.id === currentArtist.id
@@ -118,13 +117,12 @@ const usePlayerStore = create(
             isShuffle: false,
             explicit_lyrics: false,
             isAlbumMode: false,
-            showVideoModal: false, // 👈 TAMBAHKAN INI
+            showVideoModal: false, 
             showVideoPlayer: false,
 
             setShowVideoPlayer: (value) => set({ showVideoPlayer: value }),
-            toggleVideoModal: (val) =>
-                set((state) => ({ showVideoModal: val })),
-
+            
+            // 👇 Menghapus fungsi ganda toggleVideoModal agar tidak bentrok
             setIsLyricsMode: (val) => set({ isLyricsMode: val }),
             toggleLyricsMode: () =>
                 set((state) => ({ isLyricsMode: !state.isLyricsMode })),
@@ -150,7 +148,7 @@ const usePlayerStore = create(
 
             /*
             |--------------------------------------------------------------------------
-            | PLAY SONG (DIPERBAIKI)
+            | PLAY SONG 
             |--------------------------------------------------------------------------
             */
 
@@ -162,7 +160,6 @@ const usePlayerStore = create(
                         ? index
                         : songs.findIndex((s) => s.id === song.id);
 
-                // 1. Optimistic Update (UI langsung merespon dengan data awal)
                 set({
                     currentSong: song,
                     currentIndex: realIndex,
@@ -171,19 +168,14 @@ const usePlayerStore = create(
                 });
 
                 try {
-                    // 2. Tembak API Backend
                     const response = await axios.post(`/songs/${song.id}/play`);
                     console.log(`📈 Play count ditambah untuk: ${song.title}`);
 
-                    // 3. 👇 INI KUNCINYA: Timpa currentSong dengan data FRESH dari Backend
-                    // yang sudah berisi relasi genre, mood, dan style!
                     if (response.data && response.data.song) {
                         const freshSong = response.data.song;
 
                         set({ currentSong: freshSong });
 
-                        // (Opsional) Update juga data lagu tersebut di array 'songs'
-                        // agar antrean queue (SidebarRight) juga ikut terupdate datanya
                         const updatedSongs = [...get().songs];
                         if (updatedSongs[realIndex]) {
                             updatedSongs[realIndex] = freshSong;
@@ -204,12 +196,11 @@ const usePlayerStore = create(
             nextSong: async () => {
                 const state = get();
 
-                // 1. GEMBOK ANTI-SPAM (Mencegah macet/ketiban)
                 if (state.isFetchingAi) {
                     console.log(
                         "⏳ Sedang memuat lagu AI, harap tunggu sebentar...",
                     );
-                    return; // Hentikan eksekusi kalau masih fetching
+                    return; 
                 }
 
                 const {
@@ -243,16 +234,12 @@ const usePlayerStore = create(
                     );
                 }
 
-                // --- KUNCI STATE: Mulai mencari lagu AI ---
                 set({ isFetchingAi: true });
 
                 try {
-                    // 2. LOGIC AI LEBIH PINTAR
-                    // Kita kirimkan ID artis yang sedang diputar biar backend tidak mengirim lagu dari artis yang sama
                     const recentArtistId =
                         currentSong?.artist_id || currentSong?.artist?.id;
 
-                    // Pass payload ke fungsi fetch kamu
                     const newAiSong = await get().fetchAiSongFromDB({
                         exclude_artist_id: recentArtistId,
                         history: playedHistory,
@@ -283,7 +270,6 @@ const usePlayerStore = create(
                             );
                         }
 
-                        // Mainkan lagu baru
                         get().playSong(newAiSong, newIndex);
                     } else {
                         console.log(
@@ -296,11 +282,9 @@ const usePlayerStore = create(
                     }
                 } catch (error) {
                     console.error("Gagal memuat lagu AI:", error);
-                    // Fallback kalau fetch gagal, play lagu acak dari playlist saat ini
                     const nextIndex = (currentIndex + 1) % songs.length;
                     get().playSong(songs[nextIndex], nextIndex);
                 } finally {
-                    // --- BUKA KUNCI STATE: Selesai mencari (berhasil maupun gagal) ---
                     set({ isFetchingAi: false });
                 }
             },
@@ -318,7 +302,7 @@ const usePlayerStore = create(
                 const prevIndex =
                     currentIndex - 1 < 0 ? songs.length - 1 : currentIndex - 1;
 
-                get().playSong(songs[prevIndex], prevIndex); // 👇 Ubah jadi panggil playSong agar selalu ter-update data fresh-nya
+                get().playSong(songs[prevIndex], prevIndex); 
             },
 
             toggleShuffle: () => {
@@ -328,6 +312,11 @@ const usePlayerStore = create(
 
         {
             name: "zalpe-music-player",
+            // 👇 PERBAIKAN: Konfigurasi partialize ditambahkan di sini
+            partialize: (state) => {
+                const { isFetchingAi, isPlaying, showVideoModal, showVideoPlayer, ...persistedState } = state;
+                return persistedState;
+            },
         },
     ),
 );

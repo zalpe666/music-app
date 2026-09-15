@@ -19,6 +19,8 @@ use App\Models\Genre;
 use App\Models\Mood;
 use App\Models\Style;
 
+use App\Jobs\ConvertSongToMp3;
+
 class SongController extends Controller
 {
 
@@ -386,5 +388,25 @@ class SongController extends Controller
             Log::error('Error sync spotify: ' . $e->getMessage());
             return redirect()->route('songs.index')->withErrors(['error' => 'Gagal sinkronisasi: ' . $e->getMessage()]);
         }
+    }
+    public function bulkConvertToMp3()
+    {
+        $songs = Song::query()
+            ->whereNotNull('audio_path')
+            ->where('audio_path', '!=', '')
+            ->get(['id']);
+
+        $total = $songs->count();
+
+        foreach ($songs as $song) {
+            ConvertSongToMp3::dispatch(
+                $song->id
+            );
+        }
+
+        return back()->with(
+            'success',
+            "{$total} lagu dimasukkan ke antrean untuk dikonversi ke MP3."
+        );
     }
 }

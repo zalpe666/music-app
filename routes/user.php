@@ -39,7 +39,28 @@ Route::get('/', function () {
 | User App (Inertia)
 |--------------------------------------------------------------------------
 */
+Route::get('/test-audio/{audio_path}', function ($audio_path) {
+    $path = storage_path('app/temp_songs/' . $audio_path . '.mp3');
 
+    if (!file_exists($path)) {
+        abort(404);
+    }
+
+    return response()->file($path, [
+        'Content-Type' => 'audio/mpeg',
+        'Content-Length' => filesize($path),
+        'Accept-Ranges' => 'bytes',
+        'Cache-Control' => 'no-cache',
+    ]);
+});
+Route::get('/test-mp3', function () {
+    $path = storage_path('app/temp_songs/test-converted.mp3');
+
+    return response()->file($path, [
+        'Content-Type' => 'audio/mpeg',
+        'Accept-Ranges' => 'bytes',
+    ]);
+});
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [UserHomeController::class, 'dashboard'])->name('dashboard');

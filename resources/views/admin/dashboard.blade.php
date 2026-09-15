@@ -22,7 +22,36 @@
                 </a>
             </div>
         </div>
+        <div class="flex items-center justify-between mb-6">
 
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800">
+                    Songs
+                </h2>
+
+                <p class="text-sm text-gray-500">
+                    Kelola koleksi lagu.
+                </p>
+            </div>
+
+            <form action="{{ route('admin.songs.bulk-convert-mp3') }}" method="POST"
+                onsubmit="return confirm(
+            'Convert semua lagu yang belum MP3 ke MP3? Proses akan berjalan di background.'
+        )">
+                @csrf
+
+                <button type="submit"
+                    class="inline-flex items-center gap-2 px-4 py-2.5
+                   bg-blue-600 hover:bg-blue-700
+                   text-white text-sm font-medium
+                   rounded-lg transition">
+                    <i class="ri-refresh-line"></i>
+
+                    Bulk Convert MP3
+                </button>
+            </form>
+
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
                 <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">

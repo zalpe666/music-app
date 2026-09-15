@@ -18,10 +18,31 @@ class UserStreamingController extends Controller
     public function stream($audio_path)
     {
         try {
-            $this->ensureDirectoryExists(storage_path('app/temp_songs'));
-            $fileName = $audio_path . '.mp3';
-            $fullPath = storage_path('app/temp_songs/' . $fileName);
-            if (!file_exists($fullPath)) {
+            $this->ensureDirectoryExists(
+                storage_path('app/temp_songs')
+            );
+
+            /*
+        |--------------------------------------------------------------------------
+        | 1. Path cache MP3
+        |--------------------------------------------------------------------------
+        */
+            $mp3Path = storage_path(
+                'app/temp_songs/' . $audio_path . '.mp3'
+            );
+
+            /*
+        |--------------------------------------------------------------------------
+        | 2. Kalau MP3 sudah ada di cache → langsung stream
+        |--------------------------------------------------------------------------
+        */
+            if (!file_exists($mp3Path)) {
+
+                /*
+            |--------------------------------------------------------------------------
+            | 3. Download MP3 langsung dari Google Drive
+            |--------------------------------------------------------------------------
+            */
                 $url = "https://drive.google.com/uc?export=download&id=" . $audio_path;
 
                 $response = Http::withOptions([
@@ -30,21 +51,42 @@ class UserStreamingController extends Controller
                 ])->get($url);
 
                 if (!$response->successful()) {
-                    throw new \Exception('Google Drive menolak. Status: ' . $response->status());
+                    throw new \Exception(
+                        'Google Drive menolak. Status: ' .
+                            $response->status()
+                    );
                 }
 
-                $bytes = file_put_contents($fullPath, $response->body());
+                /*
+            |--------------------------------------------------------------------------
+            | 4. Simpan MP3 ke cache
+            |--------------------------------------------------------------------------
+            */
+                $bytes = file_put_contents(
+                    $mp3Path,
+                    $response->body()
+                );
 
-                if ($bytes === false) {
-                    throw new \Exception('Gagal menulis audio.');
+                if ($bytes === false || $bytes === 0) {
+                    throw new \Exception(
+                        'Gagal menyimpan file MP3.'
+                    );
                 }
             }
-            return response()->file($fullPath, [
-                "Content-Type"  => "audio/mpeg",
-                "Accept-Ranges" => "bytes",
-                "Cache-Control" => "public, max-age=86400",
+
+            /*
+        |--------------------------------------------------------------------------
+        | 5. Stream MP3
+        |--------------------------------------------------------------------------
+        */
+            return response()->file($mp3Path, [
+                'Content-Type' => 'audio/mpeg',
+                'Content-Length' => filesize($mp3Path),
+                'Accept-Ranges' => 'bytes',
+                'Cache-Control' => 'public, max-age=86400',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+
             return response()->json([
                 'error' => true,
                 'message' => $e->getMessage(),

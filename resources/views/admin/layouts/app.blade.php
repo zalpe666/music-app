@@ -41,6 +41,7 @@
     </style>
 </head>
 
+
 <body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden flex">
 
     {{-- Sidebar --}}
@@ -103,8 +104,17 @@
 
         {{-- Content Area --}}
         <div class="flex-1 overflow-y-auto p-4 md:p-8">
-            {{-- Wrapper Card dihilangkan agar child view bisa mengatur ukuran card/containernya sendiri --}}
-            @yield('content')
+            @if (session('success'))
+                <div class="mb-5 rounded-lg bg-green-50 border border-green-200 p-4">
+                    <div class="flex items-center gap-2 text-green-700">
+                        <i class="ri-checkbox-circle-line"></i>
+
+                        <span class="text-sm font-medium">
+                            {{ session('success') }}
+                        </span>
+                    </div>
+                </div>
+            @endif @yield('content')
         </div>
 
     </main>

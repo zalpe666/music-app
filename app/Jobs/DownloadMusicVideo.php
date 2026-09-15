@@ -44,6 +44,8 @@ class DownloadMusicVideo implements ShouldQueue
             // Memanggil yt-dlp langsung lewat Command Line Interface (CLI)
             $result = Process::timeout(600)->run([
                 'yt-dlp',
+                '--cookies-from-browser',
+                'brave',
                 '-f',
                 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]',
                 '--merge-output-format',
@@ -55,7 +57,7 @@ class DownloadMusicVideo implements ShouldQueue
 
             // Tangkap output terminal untuk debugging
             $output = $result->output() . $result->errorOutput();
-            Log::info($output);
+            // Log::info($output);
 
             if ($result->successful()) {
                 $this->song->update([

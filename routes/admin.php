@@ -60,4 +60,8 @@ Route::prefix('admin')
                 'Accept-Ranges' => 'bytes',
             ]);
         })->name('video.stream');
+        Route::post(
+            '/songs/bulk-convert-mp3',
+            [SongController::class, 'bulkConvertToMp3']
+        )->name('admin.songs.bulk-convert-mp3');
     });
